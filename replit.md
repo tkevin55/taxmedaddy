@@ -146,7 +146,30 @@ Completed the core invoicing workflow with CSV import, invoice generation, and P
 - **Error Handling**: Added comprehensive validation with helpful error messages
 - **Loading States**: Proper handling of async entity loading to prevent race conditions
 
+**Business Profile Settings**
+
+Fixed critical bug where business profile form was non-functional:
+
+1. **Form Implementation**
+   - Implemented react-hook-form with Zod validation for business profile
+   - Added proper form state management and error handling
+   - Required fields: Legal Name and Display Name
+   - Optional fields: GSTIN, PAN, Address details, phone, email
+
+2. **Backend Integration**
+   - Connected to POST /api/entities for creating new business entities
+   - Connected to PUT /api/entities/:id for updating existing entities
+   - Automatic form population when existing entity data loads
+   - Cache invalidation to keep UI in sync with backend
+
+3. **User Experience**
+   - Success/error toast notifications
+   - Loading state during save operation
+   - Validation messages for required fields
+   - Form automatically resets with loaded entity data
+
 **Known Limitations**
 
 - Fulfillment status is currently a placeholder (backend doesn't track this field yet)
 - E2E testing with OIDC authentication requires HttpOnly cookie setup
+- Bank details and other settings tabs still need implementation
