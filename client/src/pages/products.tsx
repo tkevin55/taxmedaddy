@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X, Filter } from "lucide-react";
+import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X, Filter, Copy } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,6 +221,39 @@ export default function Products() {
     },
   });
 
+  const duplicateMutation = useMutation({
+    mutationFn: async (product: Product) => {
+      const duplicateData = {
+        name: `${product.name} (Copy)`,
+        sku: product.sku ? `${product.sku}-copy` : undefined,
+        description: product.description,
+        defaultPrice: product.defaultPrice,
+        purchasePrice: product.purchasePrice,
+        hsnCode: product.hsnCode,
+        gstRate: product.gstRate,
+        unit: product.unit,
+        barcode: undefined,
+        category: product.category,
+        imageUrl: product.imageUrl,
+      };
+      return apiRequest("POST", "/api/products", duplicateData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+      toast({
+        title: "Success",
+        description: "Product duplicated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate product",
+        variant: "destructive",
+      });
+    },
+  });
+
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
       return Promise.all(ids.map(id => apiRequest("DELETE", `/api/products/${id}`)));
@@ -320,6 +353,10 @@ export default function Products() {
     if (confirm("Are you sure you want to delete this product?")) {
       deleteMutation.mutate(id);
     }
+  };
+
+  const handleDuplicate = (product: Product) => {
+    duplicateMutation.mutate(product);
   };
 
   const handleImport = () => {
@@ -639,6 +676,13 @@ export default function Products() {
                         >
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDuplicate(product)}
+                          data-testid={`button-duplicate-${product.id}`}
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(product.id)}
