@@ -1,0 +1,76 @@
+Let’s extend the backend to support CSV imports.
+Add two new endpoints:
+
+/api/products/import-csv
+
+Accepts a CSV file upload (multipart/form-data, key: file).
+
+Columns to expect (from products_export.csv):
+Handle, Title, Body (HTML), Vendor, Product Category, Type, Tags, Published, Option1 Name, Option1 Value, Variant SKU, Variant Price, Variant Tax Code, Image Src.
+
+Parse with csv-parser or fast-csv.
+
+Upsert into the products table:
+
+name = Title
+
+sku = Variant SKU
+
+description = Body (HTML)
+
+default_price = Variant Price
+
+hsn_code = derive from Variant Tax Code if present
+
+gst_rate = default 18 unless parsed from tax code
+
+shopify_product_id = Handle
+
+/api/orders/import-csv
+
+Accepts CSV upload (multipart/form-data, key: file).
+
+Columns (from orders_export.csv):
+Name, Email, Created at, Lineitem name, Lineitem quantity, Lineitem price, Shipping Province Code, Billing Province Code, Shipping Name, Shipping Address1, Shipping City, Shipping Zip, Lineitem sku, Lineitem tax, etc.
+
+Group rows by Name (Shopify Order Name) — each group = one order.
+
+Create:
+
+orders entry (order_date = Created at, total = sum of line totals)
+
+order_items entries for each row in that group:
+
+name = Lineitem name
+
+sku = Lineitem sku
+
+quantity = Lineitem quantity
+
+unit_price = Lineitem price
+
+hsn_code + gst_rate fetched from products by SKU if available.
+
+If the customer email already exists in another order for this account, reuse same customer name/email.
+
+Both endpoints
+
+Must check account_id from JWT.
+
+Return { importedCount, skipped, duplicates } in JSON.
+
+On success, mark orders/products as shopify_imported = true.
+
+Include basic error handling and validation (empty rows, bad formats).
+
+Bonus
+
+Add /api/products/sample-csv and /api/orders/sample-csv that return a small downloadable CSV template (so users can see column format).
+
+Once done, I should be able to:
+
+Upload the provided Shopify exports (products_export.csv, orders_export.csv)
+
+See them appear under /api/products and /api/orders
+
+Click “Create Invoice” from any imported order → auto-prefilled invoice and PDF.
