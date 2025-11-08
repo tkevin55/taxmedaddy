@@ -271,11 +271,12 @@ export default function InvoiceCreate() {
     const discount = parseFloat(String(item.discount)) || 0;
     const gstRate = parseFloat(String(item.gstRate)) || 0;
     
-    const subtotal = rate * quantity;
-    const discountAmount = (subtotal * discount) / 100;
-    const taxableValue = subtotal - discountAmount;
+    const lineTotal = rate * quantity;
+    const discountAmount = (lineTotal * discount) / 100;
+    const totalAfterDiscount = lineTotal - discountAmount;
     
-    const taxAmount = (taxableValue * gstRate) / 100;
+    const taxableValue = totalAfterDiscount / (1 + gstRate / 100);
+    const taxAmount = totalAfterDiscount - taxableValue;
     
     return {
       ...item,
@@ -287,7 +288,7 @@ export default function InvoiceCreate() {
       cgst: 0,
       sgst: 0,
       igst: taxAmount,
-      total: taxableValue + taxAmount,
+      total: totalAfterDiscount,
     };
   };
 

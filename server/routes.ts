@@ -728,8 +728,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.user!.accountId
       );
 
+      const entity = await db.query.entities.findFirst({
+        where: eq(schema.entities.id, entityId),
+      });
+
+      if (!entity) {
+        return res.status(404).json({ error: "Entity not found" });
+      }
+
+      const currentNumber = entity.currentInvoiceNumber || 0;
+      const nextNumber = currentNumber + 1;
+      const invoiceNumber = `${entity.invoicePrefix || "INV"}-${String(nextNumber).padStart(4, "0")}`;
+
+      await db.update(schema.entities)
+        .set({ currentInvoiceNumber: nextNumber })
+        .where(eq(schema.entities.id, entityId));
+
       const [invoice] = await db.insert(schema.invoices).values({
         ...invoiceData,
+        invoiceNumber,
+        isDraft: false,
         createdBy: req.user!.userId,
       }).returning();
 

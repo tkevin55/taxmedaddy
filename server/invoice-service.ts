@@ -54,15 +54,13 @@ export async function buildInvoiceFromOrder(
     const discount = parseFloat(item.discount || "0");
     const gstRate = parseFloat(item.gstRate || "0") / 100;
 
-    const subtotal = quantity * unitPrice;
-    const taxableValue = subtotal - discount;
-    const taxAmount = taxableValue * gstRate;
+    const lineTotal = quantity * unitPrice - discount;
+    const taxableValue = lineTotal / (1 + gstRate);
+    const taxAmount = lineTotal - taxableValue;
 
     const cgst = 0;
     const sgst = 0;
     const igst = taxAmount;
-
-    const lineTotal = taxableValue + taxAmount;
 
     return {
       description: item.name,
@@ -70,7 +68,7 @@ export async function buildInvoiceFromOrder(
       quantity: String(quantity),
       unit: "UNT",
       rate: String(unitPrice),
-      priceIncludesTax: false,
+      priceIncludesTax: true,
       discountPercent: "0",
       taxableValue: String(taxableValue.toFixed(2)),
       gstRate: String(parseFloat(item.gstRate || "0")),
