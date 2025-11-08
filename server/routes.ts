@@ -21,6 +21,8 @@ import {
   generateOrdersSampleCSV
 } from "./csv-service";
 import multer from "multer";
+import * as fs from "fs";
+import * as path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -945,6 +947,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating PDF:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
+    }
+  });
+
+  app.get("/api/invoices/:id/pdf", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      const invoice = await db.query.invoices.findFirst({
+        where: and(
+          eq(schema.invoices.id, id),
+          eq(schema.invoices.accountId, req.user!.accountId)
+        ),
+      });
+
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      if (!invoice.pdfUrl) {
+        const pdfUrl = await generateInvoicePDF(id);
+        
+        const updatedInvoice = await db.query.invoices.findFirst({
+          where: eq(schema.invoices.id, id)
+        });
+        
+        if (!updatedInvoice?.pdfUrl) {
+          return res.status(500).json({ error: "Failed to generate PDF" });
+        }
+        
+        invoice.pdfUrl = pdfUrl;
+      }
+
+      const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
+      
+      if (!fs.existsSync(pdfPath)) {
+        return res.status(404).json({ error: "PDF file not found" });
+      }
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber || invoice.id}.pdf"`);
+      
+      const fileStream = fs.createReadStream(pdfPath);
+      fileStream.pipe(res);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      res.status(500).json({ error: "Failed to download PDF" });
     }
   });
 
