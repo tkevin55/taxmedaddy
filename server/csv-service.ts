@@ -162,7 +162,8 @@ export async function importOrdersFromCSV(
         continue;
       }
 
-      let orderTotal = 0;
+      let orderSubtotal = 0;
+      let orderTaxTotal = 0;
       const items: Array<{
         name: string;
         sku: string;
@@ -176,10 +177,9 @@ export async function importOrdersFromCSV(
         if (!row["Lineitem name"]) continue;
 
         const quantity = parseFloat(row["Lineitem quantity"] || "1");
-        const unitPrice = parseFloat(row["Lineitem price"] || "0");
-        const itemTotal = quantity * unitPrice;
-        orderTotal += itemTotal;
-
+        const taxInclusivePrice = parseFloat(row["Lineitem price"] || "0");
+        const lineitemTax = parseFloat(row["Lineitem tax"] || "0");
+        
         let hsnCode = "";
         let gstRate = "18.00";
         
@@ -197,11 +197,27 @@ export async function importOrdersFromCSV(
           }
         }
 
+        let taxExclusiveUnitPrice: number;
+        let itemTax: number;
+
+        if (lineitemTax > 0) {
+          itemTax = lineitemTax;
+          const totalTaxInclusivePrice = taxInclusivePrice * quantity;
+          taxExclusiveUnitPrice = (totalTaxInclusivePrice - lineitemTax) / quantity;
+        } else {
+          const gstRateDecimal = parseFloat(gstRate) / 100;
+          taxExclusiveUnitPrice = taxInclusivePrice / (1 + gstRateDecimal);
+          itemTax = (taxInclusivePrice - taxExclusiveUnitPrice) * quantity;
+        }
+
+        orderSubtotal += taxExclusiveUnitPrice * quantity;
+        orderTaxTotal += itemTax;
+
         items.push({
           name: row["Lineitem name"],
           sku: row["Lineitem sku"] || "",
           quantity: row["Lineitem quantity"] || "1",
-          unitPrice: row["Lineitem price"] || "0.00",
+          unitPrice: taxExclusiveUnitPrice.toFixed(2),
           hsnCode,
           gstRate,
         });
@@ -224,6 +240,8 @@ export async function importOrdersFromCSV(
       
       const shippingProvinceCode = firstRow["Shipping Province Code"] || firstRow["Shipping Province"] || firstRow["Billing Province Code"] || firstRow["Billing Province"] || "";
       
+      const orderTotal = orderSubtotal + orderTaxTotal;
+      
       const [order] = await db.insert(schema.orders).values({
         accountId,
         shopifyOrderNumber: orderName,
@@ -236,7 +254,8 @@ export async function importOrdersFromCSV(
         shippingState: mapProvinceCodeToState(shippingProvinceCode),
         shippingStateCode: shippingProvinceCode,
         currency: "INR",
-        subtotal: orderTotal.toFixed(2),
+        subtotal: orderSubtotal.toFixed(2),
+        taxTotal: orderTaxTotal.toFixed(2),
         total: orderTotal.toFixed(2),
         hasInvoice: false,
       }).returning();
