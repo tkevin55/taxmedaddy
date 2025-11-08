@@ -13,6 +13,7 @@ import {
   type AuthRequest 
 } from "./auth";
 import { buildInvoiceFromOrder } from "./invoice-service";
+import { generateInvoicePDF } from "./pdf-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -883,6 +884,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error importing Shopify orders:", error);
       res.status(500).json({ error: "Failed to import Shopify orders" });
+    }
+  });
+
+  app.post("/api/invoices/:id/pdf", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+
+      const invoice = await db.query.invoices.findFirst({
+        where: and(
+          eq(schema.invoices.id, id),
+          eq(schema.invoices.accountId, req.user!.accountId)
+        ),
+      });
+
+      if (!invoice) {
+        return res.status(404).json({ error: "Invoice not found" });
+      }
+
+      const pdfUrl = await generateInvoicePDF(id);
+
+      await logAudit(req.user!.accountId, req.user!.userId, "generate_pdf", "invoice", id, null, { pdfUrl });
+
+      res.json({ pdfUrl });
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      res.status(500).json({ error: "Failed to generate PDF" });
     }
   });
 
