@@ -1076,6 +1076,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/orders/bulk-delete", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
     try {
       const { orderIds } = req.body;
+      console.log("Bulk delete received orderIds:", orderIds);
 
       if (!Array.isArray(orderIds) || orderIds.length === 0) {
         return res.status(400).json({ error: "Order IDs array is required" });
@@ -1089,39 +1090,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       for (const orderId of orderIds) {
         try {
+          const orderIdInt = parseInt(orderId);
+          console.log(`Processing order ${orderId} (parsed: ${orderIdInt})`);
+          
           const order = await db.query.orders.findFirst({
             where: and(
-              eq(schema.orders.id, parseInt(orderId)),
+              eq(schema.orders.id, orderIdInt),
               eq(schema.orders.accountId, accountId)
             ),
           });
 
           if (!order) {
+            console.log(`Order ${orderId} not found`);
             errors.push(`Order ${orderId} not found`);
             continue;
           }
 
           if (order.invoiceId) {
+            console.log(`Order ${orderId} has invoice ${order.invoiceId}, cannot delete`);
             errors.push(`Order ${orderId} has an invoice and cannot be deleted`);
             continue;
           }
 
-          await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, parseInt(orderId)));
+          console.log(`Deleting order ${orderId}...`);
+          await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, orderIdInt));
           await db.delete(schema.orders).where(
             and(
-              eq(schema.orders.id, parseInt(orderId)),
+              eq(schema.orders.id, orderIdInt),
               eq(schema.orders.accountId, accountId)
             )
           );
 
           deletedCount++;
-          await logAudit(accountId, req.user!.userId, "delete", "order", parseInt(orderId));
+          console.log(`Successfully deleted order ${orderId}`);
+          await logAudit(accountId, req.user!.userId, "delete", "order", orderIdInt);
         } catch (error) {
           console.error(`Error deleting order ${orderId}:`, error);
           errors.push(`Failed to delete order ${orderId}`);
         }
       }
 
+      console.log(`Bulk delete completed: ${deletedCount} deleted, ${errors.length} errors`);
       res.json({
         message: `Deleted ${deletedCount} order(s)`,
         deletedCount,
