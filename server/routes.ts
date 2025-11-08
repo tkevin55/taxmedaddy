@@ -133,29 +133,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/auth/me", requireAuth, async (req: AuthRequest, res) => {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(schema.users.id, req.user!.userId),
-      });
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      res.json({
-        id: user.id,
-        accountId: user.accountId,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      });
-    } catch (error) {
-      console.error("Error fetching current user:", error);
-      res.status(500).json({ error: "Failed to fetch user" });
-    }
-  });
-
   app.get("/api/entities", requireAuth, async (req: AuthRequest, res) => {
     try {
       const entities = await db.query.entities.findMany({
