@@ -288,6 +288,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/signatures/upload", requireAuth, requireRole("admin", "staff"), upload.single("file"), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const uploadsDir = path.join(process.cwd(), "attached_assets", "signatures");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const fileExtension = path.extname(req.file.originalname);
+      const fileName = `signature-${Date.now()}${fileExtension}`;
+      const filePath = path.join(uploadsDir, fileName);
+      const relativeUrl = `/attached_assets/signatures/${fileName}`;
+
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      const label = req.body.label || "Signature";
+      const [signature] = await db.insert(schema.signatures).values({
+        label,
+        imageUrl: relativeUrl,
+        accountId: req.user!.accountId,
+        entityId: req.body.entityId ? parseInt(req.body.entityId) : null,
+      }).returning();
+
+      await logAudit(req.user!.accountId, req.user!.userId, "create", "signature", signature.id, null, signature);
+
+      res.json(signature);
+    } catch (error) {
+      console.error("Error uploading signature:", error);
+      res.status(500).json({ error: "Failed to upload signature" });
+    }
+  });
+
   app.post("/api/signatures", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
     try {
       const [signature] = await db.insert(schema.signatures).values({

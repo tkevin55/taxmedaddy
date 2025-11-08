@@ -249,6 +249,44 @@ export default function Settings() {
     }
   }, [bank, bankForm]);
 
+  const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("label", "Company Signature");
+    if (entity?.id) {
+      formData.append("entityId", entity.id.toString());
+    }
+
+    try {
+      const response = await fetch("/api/signatures/upload", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/signatures"] });
+      toast({
+        title: "Success",
+        description: "Signature uploaded successfully",
+      });
+      
+      event.target.value = "";
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload signature",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -661,8 +699,18 @@ export default function Settings() {
                   </div>
                 </div>
               )}
-              <div className="text-sm text-muted-foreground">
-                <p>To add or update your signature, please upload the image file to your server and provide the URL below.</p>
+              <div className="space-y-2">
+                <Label htmlFor="signature-upload">Upload Signature Image</Label>
+                <Input
+                  id="signature-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSignatureUpload}
+                  data-testid="input-signature-upload"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Supported formats: PNG, JPG, JPEG
+                </p>
               </div>
             </CardContent>
           </Card>

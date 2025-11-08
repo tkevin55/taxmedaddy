@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Save, Send, Download, ArrowLeft, Plus, Search, ChevronDown, X, Upload, Settings } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { InvoicePreview } from "@/components/invoice-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +74,8 @@ type Product = {
 };
 
 export default function InvoiceCreate() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const { toast } = useToast();
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
 
@@ -84,6 +87,16 @@ export default function InvoiceCreate() {
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
+
+  const { data: signatures = [] } = useQuery<Array<{ id: number; label: string; imageUrl: string }>>({
+    queryKey: ["/api/signatures"],
+  });
+
+  const { data: entities = [] } = useQuery<Array<{ id: number; displayName: string; legalName: string }>>({
+    queryKey: ["/api/entities"],
+  });
+
+  const [selectedSignatureId, setSelectedSignatureId] = useState<string>("no-signature");
 
   useEffect(() => {
     console.log('Location:', location);
@@ -379,6 +392,53 @@ export default function InvoiceCreate() {
   const previewData = {
     ...invoiceData,
     totals,
+  };
+
+  const generateInvoiceMutation = useMutation({
+    mutationFn: async () => {
+      if (!orderId) {
+        throw new Error("No order selected");
+      }
+      if (!entities || entities.length === 0) {
+        throw new Error("No business entity configured. Please add one in Settings.");
+      }
+      const entityId = entities[0].id;
+      const signatureId = selectedSignatureId !== "no-signature" ? parseInt(selectedSignatureId) : null;
+      
+      const response = await apiRequest("POST", `/api/orders/${orderId}/create-invoice`, {
+        entityId,
+        signatureId,
+      });
+      return response;
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "Invoice generated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      navigate("/invoices");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleGenerateInvoice = () => {
+    if (!orderId) {
+      toast({
+        title: "Error",
+        description: "No order selected",
+        variant: "destructive",
+      });
+      return;
+    }
+    generateInvoiceMutation.mutate();
   };
 
   return (
@@ -1207,35 +1267,50 @@ export default function InvoiceCreate() {
               <CardTitle className="text-sm font-medium">Select Signature</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Select defaultValue="no-signature">
+              <Select value={selectedSignatureId} onValueChange={setSelectedSignatureId}>
                 <SelectTrigger data-testid="select-signature">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="no-signature">No Signature</SelectItem>
-                  <SelectItem value="digital">Digital Signature</SelectItem>
+                  {signatures.map((sig) => (
+                    <SelectItem key={sig.id} value={String(sig.id)}>
+                      {sig.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
-              <div className="p-8 bg-muted/30 rounded-lg text-center text-sm text-muted-foreground">
-                Signature on the document
-              </div>
+              {selectedSignatureId !== "no-signature" && signatures.find(s => String(s.id) === selectedSignatureId) && (
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <img
+                    src={signatures.find(s => String(s.id) === selectedSignatureId)!.imageUrl}
+                    alt="Signature"
+                    className="max-h-24 mx-auto object-contain"
+                  />
+                </div>
+              )}
+              
+              {selectedSignatureId === "no-signature" && (
+                <div className="p-8 bg-muted/30 rounded-lg text-center text-sm text-muted-foreground">
+                  No signature selected
+                </div>
+              )}
 
-              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-signature">
-                + Add New Signature
-              </Button>
+              <Link href="/settings" data-testid="link-add-signature">
+                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary">
+                  + Add New Signature in Settings
+                </Button>
+              </Link>
             </CardContent>
           </Card>
 
           <div className="flex items-center justify-end gap-2 pt-6">
-            <Button variant="outline" data-testid="button-save-draft-bottom">
-              Save as Draft
+            <Button variant="outline" data-testid="button-cancel">
+              Cancel
             </Button>
-            <Button variant="outline" data-testid="button-save-print-bottom">
-              Save and Print
-            </Button>
-            <Button data-testid="button-save-bottom">
-              Save
+            <Button onClick={handleGenerateInvoice} data-testid="button-generate-invoice">
+              Generate Invoice
             </Button>
           </div>
         </div>
