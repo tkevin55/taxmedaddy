@@ -372,7 +372,9 @@ export default function Products() {
     
     const matchesType = 
       typeFilter.length === 0 || 
-      (product.category && typeFilter.includes(product.category.toLowerCase()));
+      typeFilter.some(filterType => 
+        product.category?.toLowerCase() === filterType.toLowerCase()
+      );
     
     return matchesSearch && matchesType;
   });
@@ -485,8 +487,8 @@ export default function Products() {
                           <div className="flex items-center gap-2">
                             <Checkbox
                               id="filter-matchbox"
-                              checked={typeFilter.includes("matchbox")}
-                              onCheckedChange={() => handleToggleTypeFilter("matchbox")}
+                              checked={typeFilter.includes("Matchboxes")}
+                              onCheckedChange={() => handleToggleTypeFilter("Matchboxes")}
                               data-testid="checkbox-filter-matchbox"
                             />
                             <label
@@ -499,8 +501,8 @@ export default function Products() {
                           <div className="flex items-center gap-2">
                             <Checkbox
                               id="filter-tshirt"
-                              checked={typeFilter.includes("tshirt")}
-                              onCheckedChange={() => handleToggleTypeFilter("tshirt")}
+                              checked={typeFilter.includes("Tshirts")}
+                              onCheckedChange={() => handleToggleTypeFilter("Tshirts")}
                               data-testid="checkbox-filter-tshirt"
                             />
                             <label
@@ -513,8 +515,8 @@ export default function Products() {
                           <div className="flex items-center gap-2">
                             <Checkbox
                               id="filter-postcard"
-                              checked={typeFilter.includes("postcard")}
-                              onCheckedChange={() => handleToggleTypeFilter("postcard")}
+                              checked={typeFilter.includes("Postcards")}
+                              onCheckedChange={() => handleToggleTypeFilter("Postcards")}
                               data-testid="checkbox-filter-postcard"
                             />
                             <label
