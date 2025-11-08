@@ -95,6 +95,7 @@ const UNITS = ["pcs", "kg", "gm", "ltr", "ml", "box", "set", "pair"];
 
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -345,11 +346,18 @@ export default function Products() {
     }
   };
 
-  const filteredProducts = products?.filter((product) =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products?.filter((product) => {
+    const matchesSearch = 
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesType = 
+      typeFilter === "all" || 
+      product.category?.toLowerCase() === typeFilter.toLowerCase();
+    
+    return matchesSearch && matchesType;
+  });
 
   return (
     <div className="space-y-6">
@@ -416,15 +424,52 @@ export default function Products() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search products, category, description, barcode..."
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          data-testid="input-search-products"
-        />
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={typeFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("all")}
+            data-testid="filter-type-all"
+          >
+            All
+          </Button>
+          <Button
+            variant={typeFilter === "matchbox" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("matchbox")}
+            data-testid="filter-type-matchbox"
+          >
+            Matchbox
+          </Button>
+          <Button
+            variant={typeFilter === "tshirt" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("tshirt")}
+            data-testid="filter-type-tshirt"
+          >
+            T-Shirt
+          </Button>
+          <Button
+            variant={typeFilter === "postcard" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTypeFilter("postcard")}
+            data-testid="filter-type-postcard"
+          >
+            Postcard
+          </Button>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search products, category, description, barcode..."
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            data-testid="input-search-products"
+          />
+        </div>
       </div>
 
       <div className="border rounded-lg">
