@@ -13,6 +13,7 @@ import Orders from "@/pages/orders";
 import Products from "@/pages/products";
 import Invoices from "@/pages/invoices";
 import InvoiceCreate from "@/pages/invoice-create";
+import CreateInvoice from "@/pages/create-invoice";
 import Settings from "@/pages/settings";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
       <Route path="/products" component={Products} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/invoices/new" component={InvoiceCreate} />
+      <Route path="/invoices/create/:orderId" component={CreateInvoice} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
