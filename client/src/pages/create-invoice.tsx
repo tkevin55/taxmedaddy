@@ -66,12 +66,12 @@ export default function CreateInvoice() {
   const { toast } = useToast();
   const orderId = params?.orderId;
 
-  const { data: orderData } = useQuery<Order>({
+  const { data: orderData, isLoading: orderLoading } = useQuery<Order>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId,
   });
 
-  const { data: entitiesData } = useQuery<Entity[]>({
+  const { data: entitiesData, isLoading: entitiesLoading } = useQuery<Entity[]>({
     queryKey: ["/api/entities"],
   });
 
@@ -140,7 +140,12 @@ export default function CreateInvoice() {
     createInvoiceMutation.mutate(data);
   });
 
-  if (!orderId || !orderData) {
+  if (!orderId) {
+    navigate("/orders");
+    return null;
+  }
+
+  if (orderLoading || entitiesLoading || !orderData) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
