@@ -261,8 +261,16 @@ export default function Settings() {
     }
 
     try {
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/signatures/upload", {
         method: "POST",
+        headers,
         body: formData,
         credentials: "include",
       });
