@@ -23,7 +23,7 @@ A React SPA built with TypeScript and Vite. It uses `shadcn/ui` components with 
 Supports bulk CSV imports for products and orders from Shopify exports. The service uses streaming parsers for efficiency, offering detailed error reporting and smart grouping for order data.
 
 ### Invoice Generation Engine
-A server-side service handling complex GST scenarios, including automatic CGST/SGST/IGST calculations and support for various pricing models. It uses Puppeteer for HTML-to-PDF conversion with custom GST-compliant templates and manages entity-specific invoice numbering.
+A server-side service handling complex GST scenarios, including automatic CGST/SGST/IGST calculations and support for various pricing models. It uses Puppeteer for HTML-to-PDF conversion with custom GST-compliant templates and manages entity-specific invoice numbering. Signature images are embedded in PDFs as base64-encoded data URLs for reliable rendering. PDF output features modern system fonts, professional spacing, and a polished color palette matching the preview interface.
 
 ### Backend Services
 Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon for PostgreSQL, `csv-parser` for stream-based processing, Puppeteer for PDF generation, and local filesystem storage for invoices. The architecture follows a conventional route-handler pattern with middleware for security and error handling, ensuring multi-tenant isolation in all database queries.
