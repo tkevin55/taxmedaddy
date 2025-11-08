@@ -1,28 +1,98 @@
 import { FileText, ShoppingCart, IndianRupee, TrendingUp, Plus, RefreshCw } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 
-export default function Dashboard() {
-  const recentInvoices = [
-    { id: '1', number: 'MAA/24-25/001', customer: 'Rajesh Kumar', amount: '₹14,691', status: 'paid' as const },
-    { id: '2', number: 'MAA/24-25/002', customer: 'Priya Sharma', amount: '₹10,502', status: 'sent' as const },
-    { id: '3', number: 'MAA/24-25/003', customer: 'Amit Patel', amount: '₹18,920', status: 'draft' as const },
-  ];
+type Invoice = {
+  id: number;
+  invoiceNumber: string;
+  invoiceDate: string;
+  buyerName: string;
+  grandTotal: string;
+  paymentStatus: string;
+  isDraft: boolean;
+  totalCgst: string;
+  totalSgst: string;
+  totalIgst: string;
+  subtotal: string;
+};
 
-  const uninvoicedOrders = [
-    { id: '1', number: '#1026', customer: 'Global Exports', amount: '₹15,600', date: '2024-01-16' },
-    { id: '2', number: '#1027', customer: 'Tech Solutions', amount: '₹22,400', date: '2024-01-16' },
-    { id: '3', number: '#1028', customer: 'Fashion Hub', amount: '₹9,850', date: '2024-01-17' },
-  ];
+type Order = {
+  id: number;
+  shopifyOrderNumber: string;
+  customerName: string;
+  total: string;
+  orderDate: string;
+  hasInvoice: boolean;
+};
+
+export default function Dashboard() {
+  const { data: invoicesData = [] } = useQuery<Invoice[]>({
+    queryKey: ["/api/invoices"],
+  });
+
+  const { data: ordersData = [] } = useQuery<Order[]>({
+    queryKey: ["/api/orders"],
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayInvoices = invoicesData.filter(inv => {
+    const invDate = new Date(inv.invoiceDate);
+    invDate.setHours(0, 0, 0, 0);
+    return invDate.getTime() === today.getTime();
+  });
+
+  const uninvoicedOrders = ordersData.filter(order => !order.hasInvoice);
+
+  const recentInvoices = invoicesData
+    .slice(0, 5)
+    .map(invoice => ({
+      id: String(invoice.id),
+      number: invoice.invoiceNumber || `INV-${invoice.id}`,
+      customer: invoice.buyerName,
+      amount: `₹${parseFloat(invoice.grandTotal).toFixed(2)}`,
+      status: invoice.isDraft ? 'draft' as const : (invoice.paymentStatus === 'paid' ? 'paid' as const : 'sent' as const),
+    }));
+
+  const totalGstCollected = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => {
+      return sum + 
+        parseFloat(inv.totalCgst || '0') + 
+        parseFloat(inv.totalSgst || '0') + 
+        parseFloat(inv.totalIgst || '0');
+    }, 0);
+
+  const totalRevenue = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => sum + parseFloat(inv.grandTotal || '0'), 0);
+
+  const totalCgst = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => sum + parseFloat(inv.totalCgst || '0'), 0);
+
+  const totalSgst = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => sum + parseFloat(inv.totalSgst || '0'), 0);
+
+  const totalIgst = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => sum + parseFloat(inv.totalIgst || '0'), 0);
+
+  const totalTaxableValue = invoicesData
+    .filter(inv => !inv.isDraft)
+    .reduce((sum, inv) => sum + parseFloat(inv.subtotal || '0'), 0);
 
   const gstSummary = [
-    { label: 'CGST Collected', amount: '₹45,680', percentage: '9%' },
-    { label: 'SGST Collected', amount: '₹45,680', percentage: '9%' },
-    { label: 'IGST Collected', amount: '₹0', percentage: '0%' },
-    { label: 'Total Taxable Value', amount: '₹5,07,550', percentage: '-' },
+    { label: 'CGST Collected', amount: `₹${totalCgst.toFixed(2)}` },
+    { label: 'SGST Collected', amount: `₹${totalSgst.toFixed(2)}` },
+    { label: 'IGST Collected', amount: `₹${totalIgst.toFixed(2)}` },
+    { label: 'Total Taxable Value', amount: `₹${totalTaxableValue.toFixed(2)}` },
   ];
 
   const statusColors = {
@@ -55,30 +125,27 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Today's Invoices"
-          value="24"
-          subtitle="+3 from yesterday"
+          value={String(todayInvoices.length)}
+          subtitle="Created today"
           icon={FileText}
-          trend={{ value: "14%", isPositive: true }}
         />
         <StatCard
           title="Uninvoiced Orders"
-          value="156"
+          value={String(uninvoicedOrders.length)}
           subtitle="Pending invoicing"
           icon={ShoppingCart}
         />
         <StatCard
           title="Total GST Collected"
-          value="₹2,45,680"
-          subtitle="This month"
+          value={`₹${totalGstCollected.toFixed(2)}`}
+          subtitle="All time"
           icon={IndianRupee}
-          trend={{ value: "8%", isPositive: true }}
         />
         <StatCard
           title="Revenue"
-          value="₹14,25,300"
-          subtitle="This month"
+          value={`₹${totalRevenue.toFixed(2)}`}
+          subtitle="All time"
           icon={TrendingUp}
-          trend={{ value: "12%", isPositive: true }}
         />
       </div>
 
@@ -93,26 +160,33 @@ export default function Dashboard() {
             </Link>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {recentInvoices.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="flex items-center justify-between p-3 rounded-lg hover-elevate"
-                  data-testid={`card-recent-invoice-${invoice.id}`}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-mono font-medium text-sm">{invoice.number}</p>
-                      <Badge variant="outline" className={`${statusColors[invoice.status]} border-0 text-xs`}>
-                        {invoice.status}
-                      </Badge>
+            {recentInvoices.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No invoices yet</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentInvoices.map((invoice) => (
+                  <div
+                    key={invoice.id}
+                    className="flex items-center justify-between p-3 rounded-lg hover-elevate"
+                    data-testid={`card-recent-invoice-${invoice.id}`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-mono font-medium text-sm">{invoice.number}</p>
+                        <Badge variant="outline" className={`${statusColors[invoice.status]} border-0 text-xs`}>
+                          {invoice.status}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">{invoice.customer}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{invoice.customer}</p>
+                    <p className="font-mono font-medium">{invoice.amount}</p>
                   </div>
-                  <p className="font-mono font-medium">{invoice.amount}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -124,14 +198,9 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {gstSummary.map((item, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">{item.label}</span>
-                    <span className="font-mono font-medium">{item.amount}</span>
-                  </div>
-                  {item.percentage !== '-' && (
-                    <p className="text-xs text-muted-foreground mt-1">Rate: {item.percentage}</p>
-                  )}
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">{item.label}</span>
+                  <span className="font-mono font-medium">{item.amount}</span>
                 </div>
               ))}
             </div>
@@ -149,30 +218,39 @@ export default function Dashboard() {
           </Link>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {uninvoicedOrders.map((order) => (
-              <div
-                key={order.id}
-                className="flex items-center justify-between p-3 rounded-lg hover-elevate"
-                data-testid={`card-uninvoiced-order-${order.id}`}
-              >
-                <div className="flex-1">
-                  <p className="font-mono font-medium text-sm">{order.number}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{order.customer}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="font-mono font-medium">{order.amount}</p>
-                    <p className="text-xs text-muted-foreground">{order.date}</p>
+          {uninvoicedOrders.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No uninvoiced orders</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {uninvoicedOrders.slice(0, 5).map((order) => (
+                <div
+                  key={order.id}
+                  className="flex items-center justify-between p-3 rounded-lg hover-elevate"
+                  data-testid={`card-uninvoiced-order-${order.id}`}
+                >
+                  <div className="flex-1">
+                    <p className="font-mono font-medium text-sm">{order.shopifyOrderNumber}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{order.customerName}</p>
                   </div>
-                  <Button size="sm" variant="outline" data-testid={`button-create-invoice-${order.id}`}>
-                    <FileText className="w-3 h-3 mr-1" />
-                    Create
-                  </Button>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="font-mono font-medium">₹{parseFloat(order.total).toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(order.orderDate).toLocaleDateString('en-IN')}</p>
+                    </div>
+                    <Link href={`/invoices/new?orderId=${order.id}`}>
+                      <Button size="sm" variant="outline" data-testid={`button-create-invoice-${order.id}`}>
+                        <FileText className="w-3 h-3 mr-1" />
+                        Create
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
