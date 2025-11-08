@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Search, Upload, Filter, AlertCircle, CheckCircle } from "lucide-react";
 import { OrdersTable } from "@/components/orders-table";
 import { FilterPanel } from "@/components/filter-panel";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +19,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 type Order = {
   id: number;
@@ -24,7 +38,14 @@ type Order = {
   orderDate: string;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  shippingState?: string;
+  shippingStateCode?: string;
   total: string;
+  subtotal: string;
+  taxTotal: string;
   paymentStatus: string;
   hasInvoice: boolean;
   invoiceNumber?: string;
@@ -36,12 +57,30 @@ type Entity = {
   gstin?: string;
 };
 
+const invoiceFormSchema = z.object({
+  entityId: z.number(),
+  buyerName: z.string().min(1, "Customer name is required"),
+  buyerEmail: z.string().email().optional().or(z.literal("")),
+  buyerPhone: z.string().optional(),
+  buyerCompany: z.string().optional(),
+  buyerGstin: z.string().optional(),
+  billingAddress: z.string().optional(),
+  shippingAddress: z.string().optional(),
+  placeOfSupply: z.string().optional(),
+  notes: z.string().optional(),
+  terms: z.string().optional(),
+});
+
+type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
+
 export default function Orders() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: ordersData, isLoading } = useQuery<Order[]>({
@@ -51,6 +90,50 @@ export default function Orders() {
   const { data: entitiesData, isLoading: entitiesLoading } = useQuery<Entity[]>({
     queryKey: ["/api/entities"],
   });
+
+  const { data: selectedOrderData, isLoading: orderDetailLoading } = useQuery<Order>({
+    queryKey: ["/api/orders", selectedOrderId],
+    enabled: !!selectedOrderId && isInvoiceDialogOpen,
+  });
+
+  const invoiceForm = useForm<InvoiceFormValues>({
+    resolver: zodResolver(invoiceFormSchema),
+    defaultValues: {
+      entityId: entitiesData?.[0]?.id || 0,
+      buyerName: "",
+      buyerEmail: "",
+      buyerPhone: "",
+      buyerCompany: "",
+      buyerGstin: "",
+      billingAddress: "",
+      shippingAddress: "",
+      placeOfSupply: "",
+      notes: "",
+      terms: "",
+    },
+  });
+
+  useEffect(() => {
+    if (selectedOrderData && entitiesData?.[0]) {
+      const placeOfSupply = selectedOrderData.shippingStateCode && selectedOrderData.shippingState
+        ? `${selectedOrderData.shippingStateCode}-${selectedOrderData.shippingState}`
+        : "";
+      
+      invoiceForm.reset({
+        entityId: entitiesData[0].id,
+        buyerName: selectedOrderData.customerName || "",
+        buyerEmail: selectedOrderData.customerEmail || "",
+        buyerPhone: selectedOrderData.customerPhone || "",
+        buyerCompany: "",
+        buyerGstin: "",
+        billingAddress: selectedOrderData.billingAddress || "",
+        shippingAddress: selectedOrderData.shippingAddress || "",
+        placeOfSupply,
+        notes: "",
+        terms: "",
+      });
+    }
+  }, [selectedOrderData, entitiesData, invoiceForm]);
 
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -140,6 +223,31 @@ export default function Orders() {
     },
   });
 
+  const createInvoiceMutation = useMutation({
+    mutationFn: async (data: InvoiceFormValues & { orderId: string }) => {
+      const { orderId, ...invoiceData } = data;
+      return apiRequest("POST", `/api/orders/${orderId}/create-invoice`, invoiceData);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setIsInvoiceDialogOpen(false);
+      setSelectedOrderId(null);
+      invoiceForm.reset();
+      toast({
+        title: "Invoice Created",
+        description: `Invoice ${data.invoiceNumber || data.id} generated successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create Invoice",
+        description: error.message || "Could not create invoice",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleImport = () => {
     if (importFile) {
       importMutation.mutate(importFile);
@@ -153,7 +261,6 @@ export default function Orders() {
   };
 
   const handleGenerateInvoice = (orderId: string) => {
-    // Don't allow invoice generation while entities are loading
     if (entitiesLoading) {
       toast({
         title: "Please Wait",
@@ -162,8 +269,30 @@ export default function Orders() {
       });
       return;
     }
-    generateInvoiceMutation.mutate(orderId);
+    
+    if (!entitiesData || entitiesData.length === 0) {
+      toast({
+        title: "No Business Entity",
+        description: "Please create a business entity in Settings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSelectedOrderId(orderId);
+    setIsInvoiceDialogOpen(true);
   };
+
+  const handleCloseInvoiceDialog = () => {
+    setIsInvoiceDialogOpen(false);
+    setSelectedOrderId(null);
+    invoiceForm.reset();
+  };
+
+  const handleSubmitInvoice = invoiceForm.handleSubmit((data) => {
+    if (!selectedOrderId) return;
+    createInvoiceMutation.mutate({ ...data, orderId: selectedOrderId });
+  });
 
   const orders = ordersData?.map(order => {
     // Map backend payment status directly - don't collapse values
@@ -361,6 +490,199 @@ export default function Orders() {
               </Button>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isInvoiceDialogOpen} onOpenChange={handleCloseInvoiceDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh]" data-testid="dialog-create-invoice">
+          <DialogHeader>
+            <DialogTitle>Create Invoice</DialogTitle>
+            <DialogDescription>
+              Review and edit invoice details before generating. Order #{selectedOrderData?.shopifyOrderNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          {orderDetailLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading order details...</div>
+          ) : (
+            <Form {...invoiceForm}>
+              <form onSubmit={handleSubmitInvoice} className="space-y-4">
+                <ScrollArea className="h-[60vh] pr-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={invoiceForm.control}
+                        name="buyerName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Customer Name *</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-buyer-name" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={invoiceForm.control}
+                        name="buyerCompany"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Optional" {...field} data-testid="input-buyer-company" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={invoiceForm.control}
+                        name="buyerEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input type="email" {...field} data-testid="input-buyer-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={invoiceForm.control}
+                        name="buyerPhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-buyer-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={invoiceForm.control}
+                        name="buyerGstin"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>GSTIN</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Optional" className="font-mono" {...field} data-testid="input-buyer-gstin" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="billingAddress"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Billing Address</FormLabel>
+                          <FormControl>
+                            <Textarea rows={2} {...field} data-testid="input-billing-address" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="shippingAddress"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Shipping Address</FormLabel>
+                          <FormControl>
+                            <Textarea rows={2} {...field} data-testid="input-shipping-address" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="placeOfSupply"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Place of Supply</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 29-Karnataka" {...field} data-testid="input-place-of-supply" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Invoice Notes</FormLabel>
+                          <FormControl>
+                            <Textarea rows={2} placeholder="Add any special notes for this invoice..." {...field} data-testid="input-notes" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={invoiceForm.control}
+                      name="terms"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Payment Terms</FormLabel>
+                          <FormControl>
+                            <Textarea rows={2} placeholder="Payment terms and conditions..." {...field} data-testid="input-terms" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {selectedOrderData && (
+                      <div className="bg-muted/30 rounded-lg p-4 space-y-2">
+                        <p className="text-sm font-medium">Order Summary</p>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Subtotal:</span>{" "}
+                            <span className="font-mono">₹{parseFloat(selectedOrderData.subtotal || "0").toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Tax:</span>{" "}
+                            <span className="font-mono">₹{parseFloat(selectedOrderData.taxTotal || "0").toFixed(2)}</span>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total:</span>{" "}
+                            <span className="font-mono font-semibold">₹{parseFloat(selectedOrderData.total || "0").toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={handleCloseInvoiceDialog} data-testid="button-cancel-invoice">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createInvoiceMutation.isPending} data-testid="button-create-invoice">
+                    {createInvoiceMutation.isPending ? "Creating..." : "Create Invoice"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
