@@ -180,12 +180,19 @@ function generateInvoiceHTML(invoice: any): string {
       max-height: 60px;
       margin-bottom: 4px;
     }
+    .company-logo {
+      max-width: 120px;
+      max-height: 80px;
+      margin: 0 auto 8px;
+      display: block;
+    }
   </style>
 </head>
 <body>
   <div class="header-label">${invoiceTypeLabel} - ORIGINAL FOR RECIPIENT</div>
   
   <div class="company-header">
+    ${entity.logoUrl ? `<img src="${entity.logoUrl}" alt="Company Logo" class="company-logo" />` : ''}
     <h1>${entity.displayName || entity.legalName}</h1>
     ${entity.legalName !== entity.displayName ? `<p>${entity.legalName}</p>` : ''}
     ${entity.gstin ? `<p>GSTIN: ${entity.gstin}</p>` : ''}
