@@ -237,8 +237,47 @@ Enhanced invoice PDF template and settings page for complete GST compliance:
    - Error logged to console without blocking invoice creation
    - Puppeteer system dependencies installed (glib, nss, Chrome libs)
 
+**Editable Invoice Creation Dialog**
+
+Implemented editable invoice creation workflow for review before generation:
+
+1. **Invoice Creation Dialog**
+   - Clicking "Generate Invoice" on Orders page now opens an editable form dialog
+   - Form pre-populated with all customer and order data
+   - All fields editable: customer name, company, email, phone, GSTIN, addresses, place of supply, notes, terms
+   - Order summary displayed showing subtotal, tax, and total
+   - Form validation with Zod schema
+
+2. **Smart Data Population**
+   - Customer details automatically filled from order
+   - Place of supply formatted as "StateCode-StateName" from shipping state
+   - Entity ID automatically selected from first configured business entity
+   - Form resets properly when dialog is closed
+
+3. **Invoice Submission**
+   - Form submits to create invoice with edited data
+   - Shows loading state during creation
+   - Success/error toast notifications
+   - Automatically refreshes orders and invoices lists
+   - Dialog closes after successful creation
+
+**Company Logo Upload**
+
+Added company logo support for invoice branding:
+
+1. **Logo Field in Business Profile**
+   - New "Company Logo URL" field in Settings > Business Profile
+   - Logo preview shown when URL is provided
+   - Logo URL saved to entity record
+
+2. **Logo in PDF Template**
+   - Logo displayed at top of invoice header (if configured)
+   - Centered above company name with max 120px width, 80px height
+   - Gracefully omitted if no logo URL provided
+   - Proper styling to maintain professional invoice appearance
+
 **Known Limitations**
 
 - Fulfillment status is currently a placeholder (backend doesn't track this field yet)
 - E2E testing with OIDC authentication requires HttpOnly cookie setup
-- Signature upload requires manual file hosting and URL entry (direct file upload not yet implemented)
+- Signature and logo upload require manual file hosting and URL entry (direct file upload not yet implemented)
