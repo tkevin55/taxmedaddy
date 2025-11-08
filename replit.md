@@ -17,7 +17,7 @@ The application uses a multi-tenant PostgreSQL schema with strict account-level 
 Authentication is JWT-based and stateless, utilizing bcrypt for password hashing. Tokens include role information for efficient permission checks, and all protected endpoints enforce account-level data isolation.
 
 ### Frontend Architecture
-A React SPA built with TypeScript and Vite. It uses `shadcn/ui` components with Tailwind CSS, `Radix UI` for primitives, `TanStack Query` for server state, `React Hook Form` with Zod for validation, and Wouter for routing. The design prioritizes data density and professional aesthetics.
+A React SPA built with TypeScript and Vite. It uses `shadcn/ui` components with Tailwind CSS, `Radix UI` for primitives, `TanStack Query` for server state, `React Hook Form` with Zod for validation, and Wouter for routing. The design prioritizes data density and professional aesthetics. Invoice creation uses a dedicated full-page experience at `/invoices/create/:orderId` with pre-populated order data for better UX.
 
 ### Data Import Pipeline
 Supports bulk CSV imports for products and orders from Shopify exports. The service uses streaming parsers for efficiency, offering detailed error reporting and smart grouping for order data.
