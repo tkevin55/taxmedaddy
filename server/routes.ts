@@ -459,6 +459,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/orders/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const order = await db.query.orders.findFirst({
+        where: and(
+          eq(schema.orders.id, id),
+          eq(schema.orders.accountId, req.user!.accountId)
+        ),
+        with: {
+          items: true,
+        },
+      });
+
+      if (!order) {
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      res.status(500).json({ error: "Failed to fetch order" });
+    }
+  });
+
   app.post("/api/orders/import", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
     try {
       const { orders: ordersData } = req.body;
