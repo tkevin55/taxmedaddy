@@ -28,8 +28,10 @@ interface OrderCSVRow {
   "Lineitem name": string;
   "Lineitem quantity": string;
   "Lineitem price": string;
-  "Shipping Province Code": string;
-  "Billing Province Code": string;
+  "Shipping Province Code"?: string;
+  "Billing Province Code"?: string;
+  "Shipping Province"?: string;
+  "Billing Province"?: string;
   "Shipping Name": string;
   "Shipping Address1": string;
   "Shipping City": string;
