@@ -5,6 +5,22 @@ import { eq } from "drizzle-orm";
 import { numberToWords } from "./invoice-service";
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
+
+function getChromiumPath(): string {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  
+  try {
+    const chromiumPath = execSync('which chromium || which chromium-browser || which google-chrome', {
+      encoding: 'utf8'
+    }).trim();
+    return chromiumPath;
+  } catch (error) {
+    throw new Error('Could not find Chromium browser. Please install chromium or set PUPPETEER_EXECUTABLE_PATH environment variable.');
+  }
+}
 
 export async function generateInvoicePDF(invoiceId: number): Promise<string> {
   const invoice = await db.query.invoices.findFirst({
@@ -34,7 +50,7 @@ export async function generateInvoicePDF(invoiceId: number): Promise<string> {
 
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || 'chromium',
+    executablePath: getChromiumPath(),
     args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
 
