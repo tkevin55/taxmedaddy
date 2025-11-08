@@ -435,7 +435,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>City</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ranchi" data-testid="input-city" {...field} />
+                            <Input placeholder="Mumbai" data-testid="input-city" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -448,7 +448,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>State</FormLabel>
                           <FormControl>
-                            <Input placeholder="Jharkhand" data-testid="input-state" {...field} />
+                            <Input placeholder="Maharashtra" data-testid="input-state" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -461,7 +461,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Pincode</FormLabel>
                           <FormControl>
-                            <Input placeholder="834009" data-testid="input-pincode" {...field} />
+                            <Input placeholder="400001" data-testid="input-pincode" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -489,7 +489,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Phone</FormLabel>
                           <FormControl>
-                            <Input placeholder="+91 8197155411" data-testid="input-phone" {...field} />
+                            <Input placeholder="+91 9876543210" data-testid="input-phone" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -502,7 +502,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="contact@maachis.art" data-testid="input-email" {...field} />
+                            <Input placeholder="contact@yourcompany.com" data-testid="input-email" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -516,7 +516,7 @@ export default function Settings() {
                       <FormItem>
                         <FormLabel>Website</FormLabel>
                         <FormControl>
-                          <Input placeholder="www.maachis.art" data-testid="input-website" {...field} />
+                          <Input placeholder="www.yourcompany.com" data-testid="input-website" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -618,7 +618,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Account Number *</FormLabel>
                           <FormControl>
-                            <Input placeholder="50200080109371" className="font-mono" data-testid="input-account-number" {...field} />
+                            <Input placeholder="1234567890123" className="font-mono" data-testid="input-account-number" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -633,7 +633,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>IFSC Code *</FormLabel>
                           <FormControl>
-                            <Input placeholder="HDFC0000150" className="font-mono" data-testid="input-ifsc" {...field} />
+                            <Input placeholder="SBIN0001234" className="font-mono" data-testid="input-ifsc" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

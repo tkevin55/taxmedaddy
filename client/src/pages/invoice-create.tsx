@@ -181,21 +181,21 @@ export default function InvoiceCreate() {
   const [showTCS, setShowTCS] = useState(false);
 
   const [invoiceData, setInvoiceData] = useState({
-    invoiceNumber: 'INV-322',
+    invoiceNumber: 'INV-001',
     invoiceDate: '2024-01-15',
     dueDate: '2024-01-30',
     reference: '',
     supplier: {
-      name: 'VISUALVORTEX DESIGNS LLP',
-      gstin: '20AAWFV5749D1ZV',
-      address: '2160/A/2, Bank Colony, Bariatu, Ranchi',
-      city: 'Ranchi',
-      state: 'JHARKHAND',
-      stateCode: '20',
-      pincode: '834009',
-      mobile: '+91 8197155411',
-      email: 'contact@maachis.art',
-      website: 'www.maachis.art',
+      name: 'YOUR COMPANY NAME',
+      gstin: '',
+      address: '',
+      city: '',
+      state: '',
+      stateCode: '',
+      pincode: '',
+      mobile: '',
+      email: '',
+      website: '',
     },
     buyer: {
       name: '',
@@ -241,10 +241,10 @@ export default function InvoiceCreate() {
     notes: '',
     terms: '',
     bankDetails: {
-      bank: 'HDFC Bank',
-      accountNumber: '50200080109371',
-      ifsc: 'HDFC0000150',
-      branch: 'main road',
+      bank: '',
+      accountNumber: '',
+      ifsc: '',
+      branch: '',
       upi: '',
     },
   });
