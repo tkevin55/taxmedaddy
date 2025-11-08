@@ -30,6 +30,12 @@ type Order = {
   invoiceNumber?: string;
 };
 
+type Entity = {
+  id: number;
+  legalName: string;
+  gstin?: string;
+};
+
 export default function Orders() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -40,6 +46,10 @@ export default function Orders() {
 
   const { data: ordersData, isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders"],
+  });
+
+  const { data: entitiesData, isLoading: entitiesLoading } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"],
   });
 
   const importMutation = useMutation({
@@ -86,15 +96,24 @@ export default function Orders() {
 
   const generateInvoiceMutation = useMutation({
     mutationFn: async (orderId: string) => {
+      // Get the first entity - required for invoice generation
+      const entities = entitiesData || [];
+      if (entities.length === 0) {
+        throw new Error("No business entity found. Please create an entity in Settings first.");
+      }
+      
+      const entityId = entities[0].id;
+      
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
       
-      const res = await fetch(`/api/orders/${orderId}/invoice`, {
+      const res = await fetch(`/api/orders/${orderId}/create-invoice`, {
         method: "POST",
         headers,
+        body: JSON.stringify({ entityId }),
         credentials: "include",
       });
       
@@ -109,7 +128,7 @@ export default function Orders() {
       queryClient.refetchQueries({ queryKey: ["/api/orders"] });
       toast({
         title: "Invoice Generated",
-        description: `Invoice ${data.invoiceNumber} created successfully`,
+        description: `Invoice ${data.invoiceNumber || data.id} created successfully`,
       });
     },
     onError: (error: any) => {
@@ -134,6 +153,15 @@ export default function Orders() {
   };
 
   const handleGenerateInvoice = (orderId: string) => {
+    // Don't allow invoice generation while entities are loading
+    if (entitiesLoading) {
+      toast({
+        title: "Please Wait",
+        description: "Loading business entities...",
+        variant: "default",
+      });
+      return;
+    }
     generateInvoiceMutation.mutate(orderId);
   };
 
