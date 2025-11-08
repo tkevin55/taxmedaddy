@@ -32,12 +32,12 @@ interface OrderCSVRow {
   "Billing Province Code"?: string;
   "Shipping Province"?: string;
   "Billing Province"?: string;
-  "Shipping Name": string;
-  "Shipping Address1": string;
-  "Shipping City": string;
-  "Shipping Zip": string;
-  "Lineitem sku": string;
-  "Lineitem tax": string;
+  "Shipping Name"?: string;
+  "Shipping Address1"?: string;
+  "Shipping City"?: string;
+  "Shipping Zip"?: string;
+  "Lineitem sku"?: string;
+  "Lineitem tax"?: string;
   "Shipping Address2"?: string;
   "Billing Address1"?: string;
   "Billing City"?: string;
