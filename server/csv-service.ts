@@ -220,6 +220,8 @@ export async function importOrdersFromCSV(
 
       const orderDate = firstRow["Created at"] ? new Date(firstRow["Created at"]) : new Date();
       
+      const shippingProvinceCode = firstRow["Shipping Province Code"] || firstRow["Shipping Province"] || firstRow["Billing Province Code"] || firstRow["Billing Province"] || "";
+      
       const [order] = await db.insert(schema.orders).values({
         accountId,
         shopifyOrderNumber: orderName,
@@ -229,8 +231,8 @@ export async function importOrdersFromCSV(
         customerPhone: firstRow.Phone || "",
         billingAddress: billingAddress || shippingAddress,
         shippingAddress,
-        shippingState: mapProvinceCodeToState(firstRow["Shipping Province Code"] || firstRow["Billing Province Code"]),
-        shippingStateCode: firstRow["Shipping Province Code"] || firstRow["Billing Province Code"] || "",
+        shippingState: mapProvinceCodeToState(shippingProvinceCode),
+        shippingStateCode: shippingProvinceCode,
         currency: "INR",
         subtotal: orderTotal.toFixed(2),
         total: orderTotal.toFixed(2),
