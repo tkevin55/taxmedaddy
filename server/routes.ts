@@ -684,6 +684,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ hasInvoice: true, invoiceId: invoice.id })
         .where(eq(schema.orders.id, orderId));
 
+      await generateInvoicePDF(invoice.id);
+
       await logAudit(req.user!.accountId, req.user!.userId, "create_from_order", "invoice", invoice.id, null, { orderId, invoiceId: invoice.id });
 
       const fullInvoice = await db.query.invoices.findFirst({
