@@ -106,3 +106,47 @@ The architecture supports planned integrations for:
 - E-invoice (IRN) generation via government portals
 - Payment gateway reconciliation
 - Email delivery services for invoice distribution
+
+## Recent Changes
+
+### November 8, 2025
+
+**Invoice Generation Workflow - Complete Implementation**
+
+Completed the core invoicing workflow with CSV import, invoice generation, and PDF downloads:
+
+1. **Orders CSV Import**
+   - Added CSV upload dialog on Orders page
+   - Connected to `/api/orders/import-csv` endpoint
+   - Displays import statistics (imported, skipped, duplicates, errors)
+   - Auto-refreshes orders table after import
+
+2. **Invoice Generation from Orders**
+   - Fixed endpoint: Now correctly calls `/api/orders/:id/create-invoice`
+   - Added automatic entity selection (uses first entity from account)
+   - Implemented race condition prevention for entity loading
+   - Shows helpful error if no business entity configured
+   - Updates order status after invoice creation
+
+3. **Real Data Integration**
+   - Connected Orders page to `/api/orders` endpoint
+   - Connected Invoices page to `/api/invoices` endpoint
+   - Fixed status mapping to show real backend values (unpaid, paid, partial, overdue, etc.)
+   - Removed status collapsing that was hiding true invoice/order states
+
+4. **PDF Download**
+   - Added conditional PDF download based on `pdfUrl` field
+   - Download button only appears when PDF is available
+   - Connects to `/api/invoices/:id/pdf` endpoint
+
+**Technical Improvements**
+
+- **Status Fidelity**: Frontend now displays exact status values from backend without transformation, improving data accuracy
+- **Type Safety**: Updated TypeScript interfaces to accept any string status values, preventing future type errors
+- **Error Handling**: Added comprehensive validation with helpful error messages
+- **Loading States**: Proper handling of async entity loading to prevent race conditions
+
+**Known Limitations**
+
+- Fulfillment status is currently a placeholder (backend doesn't track this field yet)
+- E2E testing with OIDC authentication requires HttpOnly cookie setup
