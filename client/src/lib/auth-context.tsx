@@ -44,16 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData);
           setIsLoading(false);
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error("Auth check failed:", error);
           localStorage.removeItem("auth_token");
           setToken(null);
           setUser(null);
           setIsLoading(false);
+          setLocation("/login");
         });
     } else {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, setLocation]);
 
   const login = async (email: string, password: string) => {
     const response = await fetch("/api/auth/login", {
