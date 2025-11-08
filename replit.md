@@ -1,0 +1,108 @@
+# GST Invoicing SaaS Platform
+
+## Overview
+
+This is a production-ready invoicing application built for Indian businesses selling through Shopify. The platform enables multi-tenant GST-compliant invoice generation with full support for tax calculations, order imports, and document management. It serves businesses ranging from small operations (1-2k orders/month) to larger enterprises (100k+ orders), with configurable workflows that can be adapted to specific accounting requirements.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Multi-Tenant Data Model
+
+The application implements strict account-level isolation using a multi-tenant PostgreSQL schema. Every data entity (users, orders, invoices, products) is scoped to an `account_id`, ensuring complete data separation between businesses. The database schema supports:
+
+- **Account Management**: Root-level tenant isolation with cascading relationships
+- **Role-Based Access Control**: Four-tier permission system (admin, staff, viewer, read-only) with granular operation controls
+- **Business Entities**: Support for multiple legal entities per account, each with independent GSTIN, PAN, and invoice numbering sequences
+- **Order Processing**: Direct Shopify order imports with line-item tracking and automatic HSN/GST rate mapping
+- **Invoice Generation**: GST-compliant documents with support for tax invoices, bills of supply, export invoices, and credit notes
+- **Audit Trail**: Complete change tracking for compliance and troubleshooting
+
+### Authentication & Authorization
+
+JWT-based stateless authentication with bcrypt password hashing (10 salt rounds). Tokens expire after 7 days and include embedded role information for efficient permission checks. All protected endpoints verify token validity and enforce account-level data isolation at the query level.
+
+Role capabilities:
+- **Admin**: Full CRUD on entities, banks, signatures, user management, system settings
+- **Staff**: Create/edit orders, products, and invoices; cannot modify business configuration
+- **Viewer**: Read-only access to all data; cannot perform modifications
+- **Read-only**: Limited visibility (specific implementation varies by endpoint)
+
+### Frontend Architecture
+
+React SPA with TypeScript, built using Vite for fast development and optimized production builds. Design system based on shadcn/ui components with Tailwind CSS for styling. Key architectural decisions:
+
+- **Component Library**: Radix UI primitives for accessibility and flexibility
+- **State Management**: TanStack Query for server state with optimistic updates
+- **Form Handling**: React Hook Form with Zod schema validation
+- **Routing**: Wouter for lightweight client-side navigation
+- **Design Tokens**: HSL-based color system with dark mode support via CSS variables
+
+The UI follows a design-system approach inspired by Linear and Stripe, prioritizing data density, scannable layouts, and professional aesthetics suitable for enterprise productivity tools.
+
+### Data Import Pipeline
+
+Bulk CSV import system supporting both products and orders from Shopify exports. The import service uses streaming parsers to handle large files efficiently:
+
+- **Product Import**: Upserts by SKU, extracts HSN codes and GST rates from tax codes, handles HTML descriptions
+- **Order Import**: Smart grouping by Shopify order name, automatic line-item aggregation, province-to-state mapping, customer detail extraction
+- **Error Handling**: Detailed import statistics with per-row error reporting for data quality issues
+
+### Invoice Generation Engine
+
+Server-side invoice calculation service that handles complex GST scenarios:
+
+- **Tax Logic**: Automatic CGST/SGST split for intra-state transactions, IGST for inter-state, zero-tax for exports
+- **Price Calculations**: Support for both tax-inclusive and tax-exclusive pricing with discount application
+- **Document Templates**: HTML-to-PDF conversion using Puppeteer with custom templates matching Indian GST invoice formats
+- **Numbering System**: Entity-specific invoice prefixes with auto-incrementing counters
+
+### Backend Services
+
+Node.js + Express REST API with TypeScript. Key service layers:
+
+- **Database Layer**: Drizzle ORM with Neon serverless PostgreSQL connection pooling
+- **CSV Processing**: Stream-based parsing with `csv-parser` for memory-efficient imports
+- **PDF Generation**: Headless Chrome via Puppeteer for high-fidelity document rendering
+- **File Storage**: Local filesystem for invoice PDFs (stored in `attached_assets/invoices/`)
+
+The backend follows a conventional route-handler pattern with middleware for authentication, logging, and error handling. All database queries enforce multi-tenant isolation via WHERE clause filtering on `account_id`.
+
+## External Dependencies
+
+### Database
+- **PostgreSQL** (via Neon serverless): Primary data store with connection pooling for serverless environments
+- **Drizzle ORM**: Type-safe query builder with schema migrations
+
+### Authentication
+- **jsonwebtoken**: JWT token generation and verification
+- **bcrypt**: Password hashing with configurable salt rounds
+
+### File Processing
+- **csv-parser**: Streaming CSV parsing for bulk imports
+- **multer**: Multipart form-data handling for file uploads
+- **Puppeteer**: Headless browser for PDF generation from HTML templates
+
+### Frontend Libraries
+- **React 18**: UI framework with TypeScript
+- **TanStack Query**: Server state management with caching
+- **Radix UI**: Accessible component primitives (dialogs, dropdowns, accordions, etc.)
+- **Tailwind CSS**: Utility-first styling with custom design tokens
+- **React Hook Form + Zod**: Form validation and data sanitization
+- **Wouter**: Lightweight client-side routing
+
+### Development Tools
+- **Vite**: Build tool and dev server
+- **TypeScript**: Type safety across frontend and backend
+- **ESBuild**: Production bundling for server code
+
+### Future Integration Points
+The architecture supports planned integrations for:
+- Shopify API for real-time order syncing
+- E-way bill generation services
+- E-invoice (IRN) generation via government portals
+- Payment gateway reconciliation
+- Email delivery services for invoice distribution

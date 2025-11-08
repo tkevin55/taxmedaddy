@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -33,6 +34,53 @@ export default function App() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  // Development: Auto-login for testing
+  useEffect(() => {
+    if (import.meta.env.DEV && !localStorage.getItem("auth_token")) {
+      const attemptLogin = async () => {
+        try {
+          const loginRes = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: "test@example.com", password: "test123" }),
+          });
+          
+          if (loginRes.ok) {
+            const data = await loginRes.json();
+            if (data.token) {
+              localStorage.setItem("auth_token", data.token);
+              window.location.reload();
+            }
+          } else if (loginRes.status === 401) {
+            // User doesn't exist, create it
+            const signupRes = await fetch("/api/auth/signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                accountName: "Test Company",
+                name: "Test Admin",
+                email: "test@example.com",
+                password: "test123"
+              }),
+            });
+            
+            if (signupRes.ok) {
+              const data = await signupRes.json();
+              if (data.token) {
+                localStorage.setItem("auth_token", data.token);
+                window.location.reload();
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Auto-login failed:", error);
+        }
+      };
+      
+      attemptLogin();
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

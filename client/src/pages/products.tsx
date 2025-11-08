@@ -190,11 +190,26 @@ export default function Products() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      return fetch("/api/products/import-csv", {
+      
+      const token = localStorage.getItem("auth_token");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const res = await fetch("/api/products/import-csv", {
         method: "POST",
+        headers,
         body: formData,
         credentials: "include",
-      }).then((res) => res.json());
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || `Import failed with status ${res.status}`);
+      }
+      
+      return res.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
