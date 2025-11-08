@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Orders from "@/pages/orders";
+import Products from "@/pages/products";
 import Invoices from "@/pages/invoices";
 import InvoiceCreate from "@/pages/invoice-create";
 import Settings from "@/pages/settings";
@@ -18,6 +19,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/orders" component={Orders} />
+      <Route path="/products" component={Products} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/invoices/new" component={InvoiceCreate} />
       <Route path="/settings" component={Settings} />

@@ -1,4 +1,4 @@
-import { Home, FileText, ShoppingCart, Settings, Building2, LogOut } from "lucide-react";
+import { Home, FileText, ShoppingCart, Settings, Building2, LogOut, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -24,6 +24,11 @@ const menuItems = [
     title: "Orders",
     url: "/orders",
     icon: ShoppingCart,
+  },
+  {
+    title: "Products",
+    url: "/products",
+    icon: Package,
   },
   {
     title: "Invoices",
