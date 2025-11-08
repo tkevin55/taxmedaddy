@@ -104,8 +104,13 @@ export const products = pgTable("products", {
   sku: text("sku"),
   description: text("description"),
   defaultPrice: decimal("default_price", { precision: 12, scale: 2 }),
+  purchasePrice: decimal("purchase_price", { precision: 12, scale: 2 }),
   hsnCode: text("hsn_code"),
   gstRate: decimal("gst_rate", { precision: 5, scale: 2 }),
+  unit: text("unit"),
+  barcode: text("barcode"),
+  category: text("category"),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   accountIdx: index("products_account_idx").on(table.accountId),
