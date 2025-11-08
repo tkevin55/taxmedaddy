@@ -20,6 +20,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Form,
   FormControl,
   FormField,
@@ -81,6 +91,8 @@ export default function Orders() {
   const [importResult, setImportResult] = useState<any>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: ordersData, isLoading } = useQuery<Order[]>({
@@ -248,6 +260,65 @@ export default function Orders() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      return apiRequest("POST", "/api/orders/bulk-delete", { orderIds });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setSelectedOrders([]);
+      setIsDeleteConfirmOpen(false);
+      toast({
+        title: "Orders Deleted",
+        description: `Successfully deleted ${data.deletedCount} order(s)`,
+      });
+      if (data.errors && data.errors.length > 0) {
+        toast({
+          title: "Some Orders Could Not Be Deleted",
+          description: data.errors.join(", "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Delete Orders",
+        description: error.message || "Could not delete orders",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkGenerateInvoicesMutation = useMutation({
+    mutationFn: async ({ orderIds, entityId }: { orderIds: string[]; entityId: number }) => {
+      return apiRequest("POST", "/api/orders/bulk-generate-invoices", { orderIds, entityId });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      setSelectedOrders([]);
+      setIsGenerateConfirmOpen(false);
+      toast({
+        title: "Invoices Generated",
+        description: `Successfully generated ${data.createdCount} invoice(s)`,
+      });
+      if (data.errors && data.errors.length > 0) {
+        toast({
+          title: "Some Invoices Could Not Be Generated",
+          description: data.errors.join(", "),
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Generate Invoices",
+        description: error.message || "Could not generate invoices",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleImport = () => {
     if (importFile) {
       importMutation.mutate(importFile);
@@ -293,6 +364,42 @@ export default function Orders() {
     if (!selectedOrderId) return;
     createInvoiceMutation.mutate({ ...data, orderId: selectedOrderId });
   });
+
+  const handleBulkDelete = () => {
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    bulkDeleteMutation.mutate(selectedOrders);
+  };
+
+  const handleBulkGenerateInvoices = () => {
+    if (entitiesLoading) {
+      toast({
+        title: "Please Wait",
+        description: "Loading business entities...",
+        variant: "default",
+      });
+      return;
+    }
+    
+    if (!entitiesData || entitiesData.length === 0) {
+      toast({
+        title: "No Business Entity",
+        description: "Please create a business entity in Settings first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsGenerateConfirmOpen(true);
+  };
+
+  const handleConfirmGenerateInvoices = () => {
+    const entityId = entitiesData?.[0]?.id;
+    if (!entityId) return;
+    bulkGenerateInvoicesMutation.mutate({ orderIds: selectedOrders, entityId });
+  };
 
   const orders = ordersData?.map(order => {
     // Map backend payment status directly - don't collapse values
@@ -399,8 +506,8 @@ export default function Orders() {
       <BulkActionsBar
         selectedCount={selectedOrders.length}
         onClose={() => setSelectedOrders([])}
-        onGenerateInvoices={() => console.log('Generate invoices for', selectedOrders)}
-        onExport={() => console.log('Export', selectedOrders)}
+        onGenerateInvoices={handleBulkGenerateInvoices}
+        onDelete={handleBulkDelete}
       />
 
       <Dialog open={isImportDialogOpen} onOpenChange={handleCloseImportDialog}>
@@ -685,6 +792,52 @@ export default function Orders() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent data-testid="dialog-confirm-delete">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Selected Orders</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedOrders.length} order(s)? This action cannot be undone. 
+              Orders with invoices cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isGenerateConfirmOpen} onOpenChange={setIsGenerateConfirmOpen}>
+        <AlertDialogContent data-testid="dialog-confirm-generate">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Generate Invoices</AlertDialogTitle>
+            <AlertDialogDescription>
+              Generate invoices for {selectedOrders.length} selected order(s)? 
+              Invoices will be created using your default business entity. 
+              Orders that already have invoices will be skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-generate">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmGenerateInvoices}
+              disabled={bulkGenerateInvoicesMutation.isPending}
+              data-testid="button-confirm-generate"
+            >
+              {bulkGenerateInvoicesMutation.isPending ? "Generating..." : "Generate Invoices"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

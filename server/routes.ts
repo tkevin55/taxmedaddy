@@ -1081,7 +1081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          await db.delete(schema.orderLineItems).where(eq(schema.orderLineItems.orderId, parseInt(orderId)));
+          await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, parseInt(orderId)));
           await db.delete(schema.orders).where(
             and(
               eq(schema.orders.id, parseInt(orderId)),
@@ -1146,7 +1146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               eq(schema.orders.accountId, accountId)
             ),
             with: {
-              lineItems: true,
+              items: true,
             },
           });
 
@@ -1160,17 +1160,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             continue;
           }
 
-          const invoiceData = await buildInvoiceFromOrder(order, entityId, accountId);
+          const invoiceData = await buildInvoiceFromOrder(parseInt(orderId), entityId, accountId);
 
           const [invoice] = await db.insert(schema.invoices)
-            .values(invoiceData)
+            .values(invoiceData.invoice)
             .returning();
 
           await db.update(schema.orders)
             .set({ invoiceId: invoice.id })
             .where(eq(schema.orders.id, parseInt(orderId)));
 
-          invoiceNumbers.push(invoice.invoiceNumber);
+          invoiceNumbers.push(invoice.invoiceNumber || invoice.id.toString());
           createdCount++;
 
           await logAudit(accountId, req.user!.userId, "create", "invoice", invoice.id, null, {
@@ -1180,7 +1180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // Try to generate PDF (non-blocking)
           try {
-            const pdfPath = await generateInvoicePDF(invoice, entity, accountId);
+            const pdfPath = await generateInvoicePDF(invoice.id);
             await db.update(schema.invoices)
               .set({ pdfUrl: pdfPath })
               .where(eq(schema.invoices.id, invoice.id));
