@@ -56,6 +56,7 @@ interface InvoiceData {
     sgst: number;
     igst: number;
     total: number;
+    discount: number;
   };
   bankDetails?: {
     bank: string;
@@ -218,10 +219,10 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
               <span className="font-semibold">Subtotal</span>
               <span className="font-mono text-right">₹{data.totals.subtotal.toFixed(2)}</span>
             </div>
-            {data.discount && data.discount > 0 ? (
+            {data.totals.discount && data.totals.discount > 0 ? (
               <div className="flex justify-between">
                 <span>Discount</span>
-                <span className="font-mono text-right">-₹{data.discount.toFixed(2)}</span>
+                <span className="font-mono text-right">-₹{data.totals.discount.toFixed(2)}</span>
               </div>
             ) : null}
             <div className="flex justify-between">

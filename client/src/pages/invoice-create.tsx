@@ -406,40 +406,43 @@ export default function InvoiceCreate() {
       { taxableValue: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
     );
 
-    const subtotalBeforeDiscount = itemTotals.total;
-    const discount = invoiceData.discount || 0;
-    const totalAfterDiscount = Math.max(0, subtotalBeforeDiscount - discount);
+    const grossBeforeDiscount = itemTotals.total;
+    const discount = Math.min(invoiceData.discount || 0, grossBeforeDiscount);
+    const totalAfterDiscount = Math.max(0, grossBeforeDiscount - discount);
     
-    if (discount > 0 && subtotalBeforeDiscount > 0) {
+    if (discount > 0 && grossBeforeDiscount > 0) {
       if (totalAfterDiscount === 0) {
         return {
-          subtotal: subtotalBeforeDiscount,
+          subtotal: grossBeforeDiscount,
           taxableValue: 0,
           cgst: 0,
           sgst: 0,
           igst: 0,
           total: 0,
+          discount,
         };
       }
       
-      const discountRatio = totalAfterDiscount / subtotalBeforeDiscount;
+      const discountRatio = totalAfterDiscount / grossBeforeDiscount;
       
       const taxableValueAfterDiscount = itemTotals.taxableValue * discountRatio;
       const igstAfterDiscount = itemTotals.igst * discountRatio;
       
       return {
-        subtotal: subtotalBeforeDiscount,
+        subtotal: grossBeforeDiscount,
         taxableValue: taxableValueAfterDiscount,
         cgst: 0,
         sgst: 0,
         igst: igstAfterDiscount,
         total: totalAfterDiscount,
+        discount,
       };
     }
     
     return {
-      subtotal: subtotalBeforeDiscount,
+      subtotal: grossBeforeDiscount,
       ...itemTotals,
+      discount: 0,
     };
   };
 

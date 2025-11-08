@@ -102,12 +102,12 @@ export async function buildInvoiceFromOrder(
     }
   );
 
-  const orderDiscount = parseFloat(order.discountTotal || "0");
-  const subtotalBeforeDiscount = itemTotals.grandTotal;
-  const totalAfterDiscount = Math.max(0, subtotalBeforeDiscount - orderDiscount);
+  const grossBeforeDiscount = itemTotals.grandTotal;
+  const orderDiscount = Math.min(parseFloat(order.discountTotal || "0"), grossBeforeDiscount);
+  const totalAfterDiscount = Math.max(0, grossBeforeDiscount - orderDiscount);
   
   let totals = itemTotals;
-  if (orderDiscount > 0 && subtotalBeforeDiscount > 0) {
+  if (orderDiscount > 0 && grossBeforeDiscount > 0) {
     if (totalAfterDiscount === 0) {
       totals = {
         ...itemTotals,
@@ -118,7 +118,7 @@ export async function buildInvoiceFromOrder(
         grandTotal: 0,
       };
     } else {
-      const discountRatio = totalAfterDiscount / subtotalBeforeDiscount;
+      const discountRatio = totalAfterDiscount / grossBeforeDiscount;
       
       const taxableValueAfterDiscount = itemTotals.subtotal * discountRatio;
       const igstAfterDiscount = itemTotals.totalIgst * discountRatio;
