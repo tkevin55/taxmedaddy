@@ -56,3 +56,14 @@ Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon 
 - **Vite**
 - **TypeScript**
 - **ESBuild**
+
+## Recent Changes
+
+**November 8, 2025**
+- **Tax-Inclusive Pricing**: Changed invoice calculations from tax-exclusive to tax-inclusive. GST is now included in the unit price rather than added on top. For example, a unit price of ₹999 with 18% GST now calculates as: Taxable Value = ₹846.61, IGST = ₹152.39, Total = ₹999 (instead of adding GST on top to get ₹1178.82).
+- **Auto-Invoice Numbering**: Invoices created from orders are now automatically finalized with invoice numbers (e.g., INV-0001) instead of being saved as drafts. This ensures PDFs display proper invoice numbers instead of "DRAFT".
+- Implemented signature rendering in invoice preview and PDFs using base64 encoding with proper path resolution.
+- Enhanced PDF styling with modern system fonts, professional spacing, subtle color palette, and improved visual hierarchy.
+- Fixed static file serving by adding express.static middleware for /attached_assets directory.
+- Resolved Puppeteer PDF generation by installing Chromium and creating dynamic executable path resolver.
+- PDF download endpoint functional at GET /api/invoices/:id/pdf with automatic generation if PDF doesn't exist.
