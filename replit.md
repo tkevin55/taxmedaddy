@@ -111,6 +111,21 @@ The architecture supports planned integrations for:
 
 ### November 8, 2025
 
+**CSV Import Compatibility Fix**
+
+Fixed CSV import to handle standard Shopify order exports:
+
+1. **Column Name Compatibility**
+   - Updated parser to accept both "Shipping Province" and "Shipping Province Code"
+   - Updated parser to accept both "Billing Province" and "Billing Province Code"
+   - Made all address and shipping fields optional to handle multi-line item orders
+   - Prioritizes Shipping Province over Billing Province when both are available
+
+2. **Flexible Field Handling**
+   - All fields except core order identifiers (Name, Email, Created at, Lineitem name/quantity/price) are now optional
+   - Falls back gracefully when shipping information is missing
+   - Properly handles Shopify exports with both condensed and full column sets
+
 **Invoice Generation Workflow - Complete Implementation**
 
 Completed the core invoicing workflow with CSV import, invoice generation, and PDF downloads:
