@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Plus, Upload, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -99,6 +100,7 @@ export default function Products() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
+  const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
   const { toast } = useToast();
 
   const { data: products, isLoading } = useQuery<Product[]>({
@@ -212,6 +214,27 @@ export default function Products() {
     },
   });
 
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      return Promise.all(ids.map(id => apiRequest("DELETE", `/api/products/${id}`)));
+    },
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/products"] });
+      setSelectedProducts(new Set());
+      toast({
+        title: "Success",
+        description: `${selectedProducts.size} products deleted successfully`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete products",
+        variant: "destructive",
+      });
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
@@ -298,9 +321,34 @@ export default function Products() {
     }
   };
 
+  const handleToggleProduct = (productId: number) => {
+    const newSelection = new Set(selectedProducts);
+    if (newSelection.has(productId)) {
+      newSelection.delete(productId);
+    } else {
+      newSelection.add(productId);
+    }
+    setSelectedProducts(newSelection);
+  };
+
+  const handleToggleAll = () => {
+    if (selectedProducts.size === filteredProducts?.length) {
+      setSelectedProducts(new Set());
+    } else {
+      setSelectedProducts(new Set(filteredProducts?.map(p => p.id) || []));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (confirm(`Are you sure you want to delete ${selectedProducts.size} products?`)) {
+      bulkDeleteMutation.mutate(Array.from(selectedProducts));
+    }
+  };
+
   const filteredProducts = products?.filter((product) =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
+    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.category?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -308,7 +356,12 @@ export default function Products() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Products & Services</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage your product catalog</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            {products ? `${products.length} total product${products.length !== 1 ? 's' : ''}` : 'Manage your product catalog'}
+            {filteredProducts && searchQuery && filteredProducts.length !== products?.length && (
+              <span> • {filteredProducts.length} filtered</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -327,6 +380,42 @@ export default function Products() {
         </div>
       </div>
 
+      {selectedProducts.size > 0 && (
+        <div className="flex items-center justify-between gap-4 p-3 bg-muted rounded-lg">
+          <div className="flex items-center gap-3">
+            <Checkbox 
+              checked={true}
+              onCheckedChange={handleToggleAll}
+              data-testid="checkbox-deselect-all"
+            />
+            <span className="text-sm font-medium">
+              {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedProducts(new Set())}
+              data-testid="button-clear-selection"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Clear Selection
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              data-testid="button-bulk-delete"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -342,6 +431,13 @@ export default function Products() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={filteredProducts && filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                  onCheckedChange={handleToggleAll}
+                  data-testid="checkbox-select-all"
+                />
+              </TableHead>
               <TableHead className="w-[300px]">Item</TableHead>
               <TableHead className="text-right">Selling Price (Excl.)</TableHead>
               <TableHead className="text-right">Purchase Price</TableHead>
@@ -352,6 +448,7 @@ export default function Products() {
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Skeleton className="w-10 h-10 rounded" />
@@ -369,6 +466,13 @@ export default function Products() {
             ) : filteredProducts && filteredProducts.length > 0 ? (
               filteredProducts.map((product) => (
                 <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedProducts.has(product.id)}
+                      onCheckedChange={() => handleToggleProduct(product.id)}
+                      data-testid={`checkbox-product-${product.id}`}
+                    />
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="w-10 h-10 rounded">
@@ -430,7 +534,7 @@ export default function Products() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                   No products found. Click "New Item" to add your first product.
                 </TableCell>
               </TableRow>
