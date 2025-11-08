@@ -1048,6 +1048,163 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/orders/bulk-delete", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
+    try {
+      const { orderIds } = req.body;
+
+      if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "Order IDs array is required" });
+      }
+
+      const accountId = req.user!.accountId;
+
+      // Delete orders one by one to ensure account isolation
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      for (const orderId of orderIds) {
+        try {
+          const order = await db.query.orders.findFirst({
+            where: and(
+              eq(schema.orders.id, parseInt(orderId)),
+              eq(schema.orders.accountId, accountId)
+            ),
+          });
+
+          if (!order) {
+            errors.push(`Order ${orderId} not found`);
+            continue;
+          }
+
+          if (order.invoiceId) {
+            errors.push(`Order ${orderId} has an invoice and cannot be deleted`);
+            continue;
+          }
+
+          await db.delete(schema.orderLineItems).where(eq(schema.orderLineItems.orderId, parseInt(orderId)));
+          await db.delete(schema.orders).where(
+            and(
+              eq(schema.orders.id, parseInt(orderId)),
+              eq(schema.orders.accountId, accountId)
+            )
+          );
+
+          deletedCount++;
+          await logAudit(accountId, req.user!.userId, "delete", "order", parseInt(orderId));
+        } catch (error) {
+          console.error(`Error deleting order ${orderId}:`, error);
+          errors.push(`Failed to delete order ${orderId}`);
+        }
+      }
+
+      res.json({
+        message: `Deleted ${deletedCount} order(s)`,
+        deletedCount,
+        errors,
+      });
+    } catch (error) {
+      console.error("Error in bulk delete:", error);
+      res.status(500).json({ error: "Failed to delete orders" });
+    }
+  });
+
+  app.post("/api/orders/bulk-generate-invoices", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
+    try {
+      const { orderIds, entityId } = req.body;
+
+      if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        return res.status(400).json({ error: "Order IDs array is required" });
+      }
+
+      if (!entityId) {
+        return res.status(400).json({ error: "Entity ID is required" });
+      }
+
+      const accountId = req.user!.accountId;
+
+      // Verify entity exists and belongs to account
+      const entity = await db.query.entities.findFirst({
+        where: and(
+          eq(schema.entities.id, entityId),
+          eq(schema.entities.accountId, accountId)
+        ),
+      });
+
+      if (!entity) {
+        return res.status(404).json({ error: "Entity not found" });
+      }
+
+      let createdCount = 0;
+      const errors: string[] = [];
+      const invoiceNumbers: string[] = [];
+
+      for (const orderId of orderIds) {
+        try {
+          const order = await db.query.orders.findFirst({
+            where: and(
+              eq(schema.orders.id, parseInt(orderId)),
+              eq(schema.orders.accountId, accountId)
+            ),
+            with: {
+              lineItems: true,
+            },
+          });
+
+          if (!order) {
+            errors.push(`Order ${orderId} not found`);
+            continue;
+          }
+
+          if (order.invoiceId) {
+            errors.push(`Order ${orderId} already has an invoice`);
+            continue;
+          }
+
+          const invoiceData = await buildInvoiceFromOrder(order, entityId, accountId);
+
+          const [invoice] = await db.insert(schema.invoices)
+            .values(invoiceData)
+            .returning();
+
+          await db.update(schema.orders)
+            .set({ invoiceId: invoice.id })
+            .where(eq(schema.orders.id, parseInt(orderId)));
+
+          invoiceNumbers.push(invoice.invoiceNumber);
+          createdCount++;
+
+          await logAudit(accountId, req.user!.userId, "create", "invoice", invoice.id, null, {
+            orderId: parseInt(orderId),
+            invoiceNumber: invoice.invoiceNumber,
+          });
+
+          // Try to generate PDF (non-blocking)
+          try {
+            const pdfPath = await generateInvoicePDF(invoice, entity, accountId);
+            await db.update(schema.invoices)
+              .set({ pdfUrl: pdfPath })
+              .where(eq(schema.invoices.id, invoice.id));
+          } catch (pdfError) {
+            console.error(`PDF generation failed for invoice ${invoice.id}:`, pdfError);
+          }
+        } catch (error) {
+          console.error(`Error generating invoice for order ${orderId}:`, error);
+          errors.push(`Failed to generate invoice for order ${orderId}`);
+        }
+      }
+
+      res.json({
+        message: `Generated ${createdCount} invoice(s)`,
+        createdCount,
+        invoiceNumbers,
+        errors,
+      });
+    } catch (error) {
+      console.error("Error in bulk generate invoices:", error);
+      res.status(500).json({ error: "Failed to generate invoices" });
+    }
+  });
+
   app.get("/api/products/sample-csv", (req, res) => {
     const csv = generateProductsSampleCSV();
     res.setHeader("Content-Type", "text/csv");
