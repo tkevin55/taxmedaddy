@@ -5,6 +5,7 @@ interface InvoiceData {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate?: string;
+  reference?: string;
   supplier: {
     name: string;
     gstin: string;
@@ -63,6 +64,11 @@ interface InvoiceData {
   };
   notes?: string;
   terms?: string;
+  signature?: {
+    id: number;
+    label: string;
+    imageUrl: string;
+  } | null;
 }
 
 interface InvoicePreviewProps {
@@ -274,8 +280,16 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
 
         <div className="flex justify-end pb-4">
           <div className="text-center">
-            <p className="text-[10px] mb-8">For {data.supplier.name}</p>
-            <div className="border-t pt-2">
+            <p className="text-[10px] mb-2">For {data.supplier.name}</p>
+            {data.signature && data.signature.imageUrl && (
+              <img 
+                src={data.signature.imageUrl} 
+                alt="Signature" 
+                className="max-w-[180px] max-h-[70px] mx-auto mb-2"
+                data-testid="img-signature-preview"
+              />
+            )}
+            <div className={data.signature ? "border-t pt-2" : "mt-16 border-t pt-2"}>
               <p className="text-[10px] font-medium">Authorized Signatory</p>
             </div>
           </div>

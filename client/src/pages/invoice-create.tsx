@@ -451,9 +451,14 @@ export default function InvoiceCreate() {
     );
   });
 
+  const selectedSignature = selectedSignatureId !== "no-signature" 
+    ? signatures.find(s => String(s.id) === selectedSignatureId)
+    : null;
+
   const previewData = {
     ...invoiceData,
     totals,
+    signature: selectedSignature,
   };
 
   const generateInvoiceMutation = useMutation({
