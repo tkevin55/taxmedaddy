@@ -46,6 +46,11 @@ interface OrderCSVRow {
   "Financial Status"?: string;
   "Paid at"?: string;
   "Fulfillment Status"?: string;
+  "Discount Code"?: string;
+  "Discount Amount"?: string;
+  "Shipping Method"?: string;
+  Notes?: string;
+  Tags?: string;
   Phone?: string;
 }
 
@@ -242,6 +247,20 @@ export async function importOrdersFromCSV(
       
       const orderTotal = orderSubtotal + orderTaxTotal;
       
+      const rawJsonData = {
+        'Financial Status': firstRow["Financial Status"] || "",
+        'Paid at': firstRow["Paid at"] || "",
+        'Fulfillment Status': firstRow["Fulfillment Status"] || "",
+        'Shipping Name': firstRow["Shipping Name"] || "",
+        'Billing Name': firstRow["Billing Name"] || "",
+        'Discount Code': firstRow["Discount Code"] || "",
+        'Discount Amount': firstRow["Discount Amount"] || "0",
+        'Shipping Method': firstRow["Shipping Method"] || "",
+        'Notes': firstRow["Notes"] || "",
+        'Tags': firstRow["Tags"] || "",
+        currency: "INR",
+      };
+      
       const [order] = await db.insert(schema.orders).values({
         accountId,
         shopifyOrderNumber: orderName,
@@ -258,6 +277,7 @@ export async function importOrdersFromCSV(
         taxTotal: orderTaxTotal.toFixed(2),
         total: orderTotal.toFixed(2),
         hasInvoice: false,
+        rawJson: rawJsonData,
       }).returning();
 
       for (const item of items) {

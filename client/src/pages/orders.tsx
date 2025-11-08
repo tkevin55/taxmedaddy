@@ -57,6 +57,7 @@ type Order = {
   paymentStatus: string;
   hasInvoice: boolean;
   invoiceNumber?: string;
+  rawJson?: any;
   items?: Array<{
     id: number;
     name: string;
@@ -65,6 +66,7 @@ type Order = {
     quantity: number;
     unitPrice: string;
     gstRate: number;
+    discount?: string;
   }>;
 };
 
@@ -561,7 +563,7 @@ export default function Orders() {
 
           {orderDetails && (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <Label className="text-muted-foreground text-xs">Order Date</Label>
                   <p className="font-medium">{new Date(orderDetails.orderDate).toLocaleDateString('en-IN', { 
@@ -573,6 +575,10 @@ export default function Orders() {
                 <div>
                   <Label className="text-muted-foreground text-xs">Payment Status</Label>
                   <p className="font-medium capitalize">{orderDetails.paymentStatus}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Currency</Label>
+                  <p className="font-medium">{orderDetails.rawJson?.currency || 'INR'}</p>
                 </div>
               </div>
 
@@ -615,23 +621,28 @@ export default function Orders() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orderDetails.items?.map((item: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-sm">{item.name}</p>
-                              {item.sku && <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>}
-                              {item.hsnCode && <p className="text-xs text-muted-foreground">HSN: {item.hsnCode}</p>}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">{item.quantity}</TableCell>
-                          <TableCell className="text-right font-mono">₹{parseFloat(item.unitPrice).toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{item.gstRate}%</TableCell>
-                          <TableCell className="text-right font-mono font-medium">
-                            ₹{(item.quantity * parseFloat(item.unitPrice)).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {orderDetails.items?.map((item: any, idx: number) => {
+                        const itemSubtotal = item.quantity * parseFloat(item.unitPrice);
+                        const discount = parseFloat(item.discount || '0');
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-sm">{item.name}</p>
+                                {item.sku && <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>}
+                                {item.hsnCode && <p className="text-xs text-muted-foreground">HSN: {item.hsnCode}</p>}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right font-mono">₹{parseFloat(item.unitPrice).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{item.gstRate}%</TableCell>
+                            <TableCell className="text-right font-mono font-medium">
+                              ₹{itemSubtotal.toFixed(2)}
+                              {discount > 0 && <p className="text-xs text-muted-foreground">-₹{discount.toFixed(2)} disc</p>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -640,33 +651,99 @@ export default function Orders() {
               <div className="border-t pt-4">
                 <div className="space-y-2 max-w-sm ml-auto">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="text-muted-foreground">Subtotal (Taxable):</span>
                     <span className="font-mono">₹{parseFloat(orderDetails.subtotal).toFixed(2)}</span>
                   </div>
-                  {parseFloat(orderDetails.discountTotal) > 0 && (
+                  {parseFloat(orderDetails.discountTotal || '0') > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Discount:</span>
-                      <span className="font-mono">-₹{parseFloat(orderDetails.discountTotal).toFixed(2)}</span>
+                      <span className="font-mono text-destructive">-₹{parseFloat(orderDetails.discountTotal).toFixed(2)}</span>
                     </div>
                   )}
-                  {parseFloat(orderDetails.shippingTotal) > 0 && (
+                  {parseFloat(orderDetails.shippingTotal || '0') > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Shipping:</span>
                       <span className="font-mono">₹{parseFloat(orderDetails.shippingTotal).toFixed(2)}</span>
                     </div>
                   )}
-                  {parseFloat(orderDetails.taxTotal) > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tax:</span>
-                      <span className="font-mono">₹{parseFloat(orderDetails.taxTotal).toFixed(2)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">GST Tax:</span>
+                    <span className="font-mono">₹{parseFloat(orderDetails.taxTotal || '0').toFixed(2)}</span>
+                  </div>
                   <div className="flex justify-between font-medium text-lg border-t pt-2">
-                    <span>Total:</span>
+                    <span>Grand Total:</span>
                     <span className="font-mono">₹{parseFloat(orderDetails.total).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
+
+              {orderDetails.rawJson && Object.keys(orderDetails.rawJson).length > 0 && (
+                <div className="border-t pt-4">
+                  <Label className="text-muted-foreground text-xs mb-2">Additional Information from CSV</Label>
+                  <div className="grid grid-cols-2 gap-3 mt-2 text-sm">
+                    {orderDetails.rawJson['Financial Status'] && (
+                      <div>
+                        <span className="text-muted-foreground">Financial Status:</span>
+                        <p className="font-medium capitalize">{orderDetails.rawJson['Financial Status']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Paid at'] && (
+                      <div>
+                        <span className="text-muted-foreground">Paid At:</span>
+                        <p className="font-medium">{new Date(orderDetails.rawJson['Paid at']).toLocaleDateString('en-IN')}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Fulfillment Status'] && (
+                      <div>
+                        <span className="text-muted-foreground">Fulfillment:</span>
+                        <p className="font-medium capitalize">{orderDetails.rawJson['Fulfillment Status']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Shipping Name'] && (
+                      <div>
+                        <span className="text-muted-foreground">Ship To:</span>
+                        <p className="font-medium">{orderDetails.rawJson['Shipping Name']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Billing Name'] && orderDetails.rawJson['Billing Name'] !== orderDetails.rawJson['Shipping Name'] && (
+                      <div>
+                        <span className="text-muted-foreground">Bill To:</span>
+                        <p className="font-medium">{orderDetails.rawJson['Billing Name']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Discount Code'] && (
+                      <div>
+                        <span className="text-muted-foreground">Discount Code:</span>
+                        <p className="font-medium font-mono">{orderDetails.rawJson['Discount Code']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Discount Amount'] && parseFloat(orderDetails.rawJson['Discount Amount']) > 0 && (
+                      <div>
+                        <span className="text-muted-foreground">Discount Amount:</span>
+                        <p className="font-medium">₹{parseFloat(orderDetails.rawJson['Discount Amount']).toFixed(2)}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Shipping Method'] && (
+                      <div>
+                        <span className="text-muted-foreground">Shipping Method:</span>
+                        <p className="font-medium">{orderDetails.rawJson['Shipping Method']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Notes'] && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Notes:</span>
+                        <p className="font-medium">{orderDetails.rawJson['Notes']}</p>
+                      </div>
+                    )}
+                    {orderDetails.rawJson['Tags'] && (
+                      <div className="col-span-2">
+                        <span className="text-muted-foreground">Tags:</span>
+                        <p className="font-medium">{orderDetails.rawJson['Tags']}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
