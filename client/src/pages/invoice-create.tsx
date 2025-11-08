@@ -92,8 +92,33 @@ export default function InvoiceCreate() {
     queryKey: ["/api/signatures"],
   });
 
-  const { data: entities = [] } = useQuery<Array<{ id: number; displayName: string; legalName: string }>>({
+  const { data: entities = [] } = useQuery<Array<{ 
+    id: number; 
+    displayName: string; 
+    legalName: string;
+    gstin?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    stateCode?: string;
+    pincode?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+  }>>({
     queryKey: ["/api/entities"],
+  });
+
+  const { data: banks = [] } = useQuery<Array<{
+    id: number;
+    bankName: string;
+    accountNumber: string;
+    ifsc: string;
+    branch?: string;
+    upiId?: string;
+  }>>({
+    queryKey: ["/api/banks"],
   });
 
   const [selectedSignatureId, setSelectedSignatureId] = useState<string>("no-signature");
@@ -104,6 +129,43 @@ export default function InvoiceCreate() {
     console.log('Order ID:', orderId);
     console.log('Order Data:', orderData);
   }, [location, orderId, orderData]);
+
+  useEffect(() => {
+    if (entities && entities.length > 0) {
+      const entity = entities[0];
+      setInvoiceData(prev => ({
+        ...prev,
+        supplier: {
+          name: entity.displayName || entity.legalName,
+          gstin: entity.gstin || '',
+          address: entity.addressLine1 || '',
+          city: entity.city || '',
+          state: entity.state || '',
+          stateCode: entity.stateCode || '',
+          pincode: entity.pincode || '',
+          mobile: entity.phone || '',
+          email: entity.email || '',
+          website: entity.website || '',
+        },
+      }));
+    }
+  }, [entities]);
+
+  useEffect(() => {
+    if (banks && banks.length > 0) {
+      const bank = banks[0];
+      setInvoiceData(prev => ({
+        ...prev,
+        bankDetails: {
+          bank: bank.bankName,
+          accountNumber: bank.accountNumber,
+          ifsc: bank.ifsc,
+          branch: bank.branch || '',
+          upi: bank.upiId || '',
+        },
+      }));
+    }
+  }, [banks]);
   
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [productSearchOpen, setProductSearchOpen] = useState(false);

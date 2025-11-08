@@ -115,103 +115,87 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
           )}
         </div>
 
-        <div className="flex justify-between items-start pb-3">
-          <div>
-            <p className="font-semibold">Invoice #: {data.invoiceNumber}</p>
-          </div>
-          <div className="text-right">
-            <p>Invoice Date: {new Date(data.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+        <div className="border rounded p-3 bg-muted/30">
+          <p className="font-medium text-[10px] mb-2">Invoice Details</p>
+          <div className="space-y-1 text-[10px]">
+            <p><span className="font-medium">Invoice #:</span> {data.invoiceNumber}</p>
+            <p><span className="font-medium">Date:</span> {new Date(data.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+            {data.dueDate && (
+              <p><span className="font-medium">Due Date:</span> {new Date(data.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+            )}
+            {data.reference && (
+              <p><span className="font-medium">Reference:</span> {data.reference}</p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 pb-4 border-b text-[10px]">
-          <div>
-            <p className="font-medium mb-1">Customer Details:</p>
-            {data.buyer.name ? (
-              <>
-                <p className="font-semibold">{data.buyer.name}</p>
-                {data.buyer.phone && <p>Ph: {data.buyer.phone}</p>}
-                {data.buyer.email && <p>{data.buyer.email}</p>}
-              </>
-            ) : (
-              <p className="text-muted-foreground italic">No customer selected</p>
-            )}
+        <div className="grid grid-cols-2 gap-4 text-[10px]">
+          <div className="border rounded p-3 bg-muted/30">
+            <p className="font-medium mb-2">Billing To</p>
+            <div className="space-y-1">
+              {data.buyer.name ? (
+                <>
+                  <p className="font-semibold">{data.buyer.name}</p>
+                  {data.buyer.gstin && <p>GSTIN: {data.buyer.gstin}</p>}
+                  {data.buyer.billingAddress && <p>{data.buyer.billingAddress}</p>}
+                  {data.buyer.email && <p>Email: {data.buyer.email}</p>}
+                  {data.buyer.phone && <p>Ph: {data.buyer.phone}</p>}
+                </>
+              ) : (
+                <p className="text-muted-foreground italic">No customer selected</p>
+              )}
+            </div>
           </div>
-          <div>
-            <p className="font-medium mb-1">Billing Address:</p>
-            {data.buyer.billingAddress ? (
-              <>
-                <p>{data.buyer.billingAddress}</p>
-                {data.buyer.billingCity && (
-                  <p>{data.buyer.billingCity}, {data.buyer.billingState}, {data.buyer.billingPincode}</p>
-                )}
-              </>
-            ) : (
-              <p className="text-muted-foreground italic">Not provided</p>
-            )}
-          </div>
-          <div>
-            <p className="font-medium mb-1">Shipping Address:</p>
-            {data.buyer.shippingAddress ? (
-              <>
+          <div className="border rounded p-3 bg-muted/30">
+            <p className="font-medium mb-2">Shipping To</p>
+            <div className="space-y-1">
+              {data.buyer.shippingAddress ? (
                 <p>{data.buyer.shippingAddress}</p>
-                {data.buyer.shippingCity && (
-                  <p>{data.buyer.shippingCity}, {data.buyer.shippingState}, {data.buyer.shippingPincode}</p>
-                )}
-              </>
-            ) : (
-              <p className="text-muted-foreground italic">Not provided</p>
-            )}
+              ) : (
+                <p>Same as Billing Address</p>
+              )}
+              {data.placeOfSupply && (
+                <p><span className="font-medium">Place of Supply:</span> {data.placeOfSupply}</p>
+              )}
+            </div>
           </div>
         </div>
-
-        {data.placeOfSupply && (
-          <div className="text-[10px]">
-            <p><span className="font-medium">Place of Supply:</span> {data.placeOfSupply}</p>
-          </div>
-        )}
 
         <div className="border rounded overflow-hidden">
           <table className="w-full text-[10px]">
             <thead className="bg-muted">
               <tr>
-                <th className="text-left p-2 font-medium border-r">#</th>
-                <th className="text-left p-2 font-medium border-r">Item</th>
-                <th className="text-right p-2 font-medium border-r">Rate / Item</th>
-                <th className="text-right p-2 font-medium border-r">Disc (%)</th>
-                <th className="text-right p-2 font-medium border-r">Qty</th>
-                <th className="text-right p-2 font-medium border-r">Taxable Value</th>
-                <th className="text-right p-2 font-medium border-r">Tax Amount</th>
-                <th className="text-right p-2 font-medium">Amount</th>
+                <th className="text-center p-2 font-medium border-r">#</th>
+                <th className="text-left p-2 font-medium border-r">Description</th>
+                <th className="text-center p-2 font-medium border-r">HSN</th>
+                <th className="text-center p-2 font-medium border-r">Qty</th>
+                <th className="text-right p-2 font-medium border-r">Rate</th>
+                <th className="text-right p-2 font-medium border-r">Taxable</th>
+                <th className="text-center p-2 font-medium border-r">GST%</th>
+                <th className="text-right p-2 font-medium border-r">IGST</th>
+                <th className="text-right p-2 font-medium">Total</th>
               </tr>
             </thead>
             <tbody>
               {data.items.length > 0 ? (
                 data.items.map((item, idx) => (
                   <tr key={idx} className="border-t">
-                    <td className="p-2 border-r align-top">{idx + 1}</td>
+                    <td className="p-2 border-r align-top text-center">{idx + 1}</td>
                     <td className="p-2 border-r">
-                      <div>
-                        <p className="font-medium">{item.description || 'Untitled Item'}</p>
-                        {item.details && (
-                          <p className="text-muted-foreground mt-1 whitespace-pre-wrap text-[9px]">{item.details}</p>
-                        )}
-                        <p className="text-muted-foreground mt-1">HSN: {item.hsn || '-'}</p>
-                      </div>
+                      <p className="font-medium">{item.description || 'Untitled Item'}</p>
                     </td>
-                    <td className="p-2 text-right font-mono border-r align-top">{item.rate.toFixed(2)}</td>
-                    <td className="p-2 text-right font-mono border-r align-top">{item.discount || '-'}</td>
-                    <td className="p-2 text-right font-mono border-r align-top">{item.quantity} {item.unit || 'UNT'}</td>
-                    <td className="p-2 text-right font-mono border-r align-top">{item.taxableValue.toFixed(2)}</td>
-                    <td className="p-2 text-right font-mono border-r align-top">
-                      <span>{item.igst.toFixed(2)} ({item.gstRate}%)</span>
-                    </td>
-                    <td className="p-2 text-right font-mono align-top">{item.total.toFixed(2)}</td>
+                    <td className="p-2 text-center font-mono border-r align-top">{item.hsn || '-'}</td>
+                    <td className="p-2 text-center font-mono border-r align-top">{item.quantity.toFixed(2)}</td>
+                    <td className="p-2 text-right font-mono border-r align-top">₹{item.rate.toFixed(2)}</td>
+                    <td className="p-2 text-right font-mono border-r align-top">₹{item.taxableValue.toFixed(2)}</td>
+                    <td className="p-2 text-center font-mono border-r align-top">{item.gstRate}%</td>
+                    <td className="p-2 text-right font-mono border-r align-top">₹{item.igst.toFixed(2)}</td>
+                    <td className="p-2 text-right font-mono align-top">₹{item.total.toFixed(2)}</td>
                   </tr>
                 ))
               ) : (
                 <tr className="border-t">
-                  <td colSpan={8} className="p-8 text-center text-muted-foreground italic">
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground italic">
                     No items added yet
                   </td>
                 </tr>
@@ -220,58 +204,53 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
           </table>
         </div>
 
-        <div className="flex justify-between items-end pb-4 border-b">
-          <div className="text-[10px]">
-            <p><span className="font-medium">Total Items / Qty :</span> {totalItems} / {totalQty}</p>
-          </div>
-          <div className="w-80 space-y-1">
-            <div className="flex justify-between text-right">
-              <span className="text-muted-foreground">Taxable Amount</span>
-              <span className="font-mono">₹{data.totals.taxableValue.toFixed(2)}</span>
+        <div className="flex justify-end pb-4 border-b">
+          <div className="w-80 space-y-1 text-[10px]">
+            <div className="flex justify-between">
+              <span className="font-semibold">Taxable Amount</span>
+              <span className="font-mono text-right">₹{data.totals.taxableValue.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-right">
-              <span className="text-muted-foreground">IGST {data.items[0]?.gstRate || 0}%</span>
-              <span className="font-mono">₹{data.totals.igst.toFixed(2)}</span>
+            <div className="flex justify-between">
+              <span>IGST</span>
+              <span className="font-mono text-right">₹{data.totals.igst.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between pt-2 border-t font-semibold">
-              <span>Total</span>
-              <span className="font-mono">₹{data.totals.total.toFixed(2)}</span>
+            <div className="flex justify-between pt-2 border-t">
+              <span className="font-semibold">Grand Total</span>
+              <span className="font-mono font-semibold text-right">₹{data.totals.total.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         <div className="text-[10px] pb-4 border-b">
-          <p><span className="font-medium">Total amount (in words):</span> {numberToWords(data.totals.total)}</p>
+          <p><span className="font-medium">Amount in Words:</span> {numberToWords(data.totals.total)}</p>
         </div>
 
         {data.bankDetails && (
-          <div className="grid grid-cols-2 gap-8 pb-4 border-b text-[10px]">
-            <div>
-              <p className="font-medium mb-2">Pay using UPI:</p>
-              <div className="w-32 h-32 border-2 border-dashed rounded flex items-center justify-center bg-muted/30">
-                <QrCode className="w-16 h-16 text-muted-foreground" />
-              </div>
-            </div>
-            <div>
-              <p className="font-medium mb-2">Bank Details:</p>
-              <div className="space-y-1 font-mono">
-                <div className="flex">
-                  <span className="w-24">Bank:</span>
-                  <span>{data.bankDetails.bank}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-24">Account #:</span>
-                  <span>{data.bankDetails.accountNumber}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-24">IFSC Code:</span>
-                  <span>{data.bankDetails.ifsc}</span>
-                </div>
-                <div className="flex">
-                  <span className="w-24">Branch:</span>
-                  <span>{data.bankDetails.branch}</span>
-                </div>
-              </div>
+          <div className="pb-4 border-b">
+            <p className="font-medium mb-2 text-[10px]">Bank Details</p>
+            <div className="border rounded overflow-hidden">
+              <table className="w-full text-[10px]">
+                <tbody>
+                  <tr className="border-b">
+                    <td className="p-2 font-semibold border-r bg-muted/30">Bank</td>
+                    <td className="p-2">{data.bankDetails.bank}</td>
+                    <td className="p-2 font-semibold border-l border-r bg-muted/30">Account #</td>
+                    <td className="p-2">{data.bankDetails.accountNumber}</td>
+                  </tr>
+                  <tr>
+                    <td className="p-2 font-semibold border-r bg-muted/30">IFSC Code</td>
+                    <td className="p-2">{data.bankDetails.ifsc}</td>
+                    <td className="p-2 font-semibold border-l border-r bg-muted/30">Branch</td>
+                    <td className="p-2">{data.bankDetails.branch || '-'}</td>
+                  </tr>
+                  {data.bankDetails.upi && (
+                    <tr className="border-t">
+                      <td className="p-2 font-semibold border-r bg-muted/30">UPI ID</td>
+                      <td colSpan={3} className="p-2">{data.bankDetails.upi}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
