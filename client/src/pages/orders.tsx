@@ -164,7 +164,8 @@ export default function Orders() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (orderIds: string[]) => {
-      return apiRequest("POST", "/api/orders/bulk-delete", { orderIds });
+      const res = await apiRequest("POST", "/api/orders/bulk-delete", { orderIds });
+      return res.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
@@ -193,7 +194,8 @@ export default function Orders() {
 
   const bulkGenerateInvoicesMutation = useMutation({
     mutationFn: async ({ orderIds, entityId }: { orderIds: string[]; entityId: number }) => {
-      return apiRequest("POST", "/api/orders/bulk-generate-invoices", { orderIds, entityId });
+      const res = await apiRequest("POST", "/api/orders/bulk-generate-invoices", { orderIds, entityId });
+      return res.json();
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
