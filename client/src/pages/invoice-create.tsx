@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Save, Send, Download, ArrowLeft, Plus, Search, ChevronDown, X, Upload, Settings } from "lucide-react";
@@ -24,6 +24,19 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type Order = {
   id: number;
@@ -48,6 +61,16 @@ type Order = {
   }>;
 };
 
+type Product = {
+  id: number;
+  name: string;
+  sku?: string;
+  category?: string;
+  defaultPrice?: string;
+  hsnCode?: string;
+  gstRate?: string;
+};
+
 export default function InvoiceCreate() {
   const [location] = useLocation();
   const urlParams = new URLSearchParams(window.location.search);
@@ -58,12 +81,20 @@ export default function InvoiceCreate() {
     enabled: !!orderId,
   });
 
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
   useEffect(() => {
     console.log('Location:', location);
     console.log('Window search:', window.location.search);
     console.log('Order ID:', orderId);
     console.log('Order Data:', orderData);
   }, [location, orderId, orderData]);
+  
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [selectedLineItemIndex, setSelectedLineItemIndex] = useState<number>(0);
   const [showCustomHeaders, setShowCustomHeaders] = useState(false);
   const [showDescription, setShowDescription] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
@@ -328,6 +359,26 @@ export default function InvoiceCreate() {
       }));
     }
   };
+
+  const handleSelectProduct = (product: Product, itemIndex: number) => {
+    const item = invoiceData.items[itemIndex];
+    updateItem(itemIndex, 'description', product.name);
+    updateItem(itemIndex, 'hsn', product.hsnCode || '');
+    updateItem(itemIndex, 'rate', parseFloat(product.defaultPrice || '0'));
+    updateItem(itemIndex, 'gstRate', parseFloat(product.gstRate || '18'));
+    setProductSearchQuery("");
+    setProductSearchOpen(false);
+  };
+
+  const filteredProducts = products.filter(product => {
+    const query = productSearchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(query) ||
+      product.category?.toLowerCase().includes(query) ||
+      product.defaultPrice?.includes(query) ||
+      product.sku?.toLowerCase().includes(query)
+    );
+  });
 
   const previewData = {
     ...invoiceData,
@@ -702,14 +753,59 @@ export default function InvoiceCreate() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search, scan barcode for existing products or search..."
-                  className="pl-9"
-                  data-testid="input-product-search"
-                />
-              </div>
+              <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={productSearchOpen}
+                    className="w-full justify-start text-left font-normal"
+                    data-testid="button-product-search"
+                  >
+                    <Search className="w-4 h-4 mr-2 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      Search products by name, type, or price...
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[600px] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="Search products..."
+                      value={productSearchQuery}
+                      onValueChange={setProductSearchQuery}
+                      data-testid="input-product-search"
+                    />
+                    <CommandList>
+                      <CommandEmpty>No products found.</CommandEmpty>
+                      <CommandGroup>
+                        {filteredProducts.slice(0, 20).map((product) => (
+                          <CommandItem
+                            key={product.id}
+                            value={product.name}
+                            onSelect={() => handleSelectProduct(product, selectedLineItemIndex)}
+                            className="flex items-center justify-between gap-4"
+                            data-testid={`product-option-${product.id}`}
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium">{product.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {product.category && <span>{product.category}</span>}
+                                {product.sku && (
+                                  <span className="ml-2">SKU: {product.sku}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-sm font-mono">
+                              ₹ {product.defaultPrice || '0.00'}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
               <div className="space-y-3">
                 {invoiceData.items.map((item, index) => (
