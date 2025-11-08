@@ -202,8 +202,43 @@ Fixed critical bug where business profile form was non-functional:
    - Validation messages for required fields
    - Form automatically resets with loaded entity data
 
+**PDF Template and Settings Enhancement**
+
+Enhanced invoice PDF template and settings page for complete GST compliance:
+
+1. **PDF Template Improvements**
+   - Updated bank details section to display branch field
+   - Place of supply already formatted as "StateCode-StateName" (e.g., "29-Karnataka")
+   - Invoice header includes all business entity details (name, GSTIN, address, phone, email, website)
+   - Signature display integrated when signature is configured
+
+2. **Business Profile Form Enhancement**
+   - Added State Code field for GST state code (e.g., "20" for Jharkhand)
+   - Added Website field for company website URL
+   - Added Invoice Prefix field (defaults to "INV")
+   - All fields properly validated and saved to database
+
+3. **Bank Details Form Implementation**
+   - Fully functional react-hook-form with Zod validation
+   - Fields: Label, Bank Name*, Account Number*, IFSC Code*, Branch, UPI ID
+   - Connected to GET /api/banks and POST/PUT /api/banks/:id endpoints
+   - Automatic form population with existing bank data
+   - Success/error toast notifications
+
+4. **Signature Management**
+   - Display existing signature if configured
+   - Shows signature preview in settings
+   - Signature automatically included in PDF invoice template
+   - Instructions for adding signature image URL
+
+5. **PDF Generation Resilience**
+   - Made PDF generation non-blocking with try-catch
+   - Invoice creation succeeds even if PDF generation fails
+   - Error logged to console without blocking invoice creation
+   - Puppeteer system dependencies installed (glib, nss, Chrome libs)
+
 **Known Limitations**
 
 - Fulfillment status is currently a placeholder (backend doesn't track this field yet)
 - E2E testing with OIDC authentication requires HttpOnly cookie setup
-- Bank details and other settings tabs still need implementation
+- Signature upload requires manual file hosting and URL entry (direct file upload not yet implemented)
