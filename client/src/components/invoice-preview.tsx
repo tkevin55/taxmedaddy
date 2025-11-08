@@ -90,7 +90,6 @@ function numberToWords(num: number): string {
 }
 
 export function InvoicePreview({ data }: InvoicePreviewProps) {
-  const isIGST = data.totals.igst > 0;
   const totalItems = data.items.length;
   const totalQty = data.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -205,11 +204,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                     <td className="p-2 text-right font-mono border-r align-top">{item.quantity} {item.unit || 'UNT'}</td>
                     <td className="p-2 text-right font-mono border-r align-top">{item.taxableValue.toFixed(2)}</td>
                     <td className="p-2 text-right font-mono border-r align-top">
-                      {isIGST ? (
-                        <span>{item.igst.toFixed(2)} ({item.gstRate}%)</span>
-                      ) : (
-                        <span>{(item.cgst + item.sgst).toFixed(2)} ({item.gstRate}%)</span>
-                      )}
+                      <span>{item.igst.toFixed(2)} ({item.gstRate}%)</span>
                     </td>
                     <td className="p-2 text-right font-mono align-top">{item.total.toFixed(2)}</td>
                   </tr>
@@ -234,23 +229,10 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
               <span className="text-muted-foreground">Taxable Amount</span>
               <span className="font-mono">₹{data.totals.taxableValue.toFixed(2)}</span>
             </div>
-            {isIGST ? (
-              <div className="flex justify-between text-right">
-                <span className="text-muted-foreground">IGST {data.items[0]?.gstRate || 0}%</span>
-                <span className="font-mono">₹{data.totals.igst.toFixed(2)}</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex justify-between text-right">
-                  <span className="text-muted-foreground">CGST {(data.items[0]?.gstRate || 0) / 2}%</span>
-                  <span className="font-mono">₹{data.totals.cgst.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-right">
-                  <span className="text-muted-foreground">SGST {(data.items[0]?.gstRate || 0) / 2}%</span>
-                  <span className="font-mono">₹{data.totals.sgst.toFixed(2)}</span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between text-right">
+              <span className="text-muted-foreground">IGST {data.items[0]?.gstRate || 0}%</span>
+              <span className="font-mono">₹{data.totals.igst.toFixed(2)}</span>
+            </div>
             <div className="flex justify-between pt-2 border-t font-semibold">
               <span>Total</span>
               <span className="font-mono">₹{data.totals.total.toFixed(2)}</span>

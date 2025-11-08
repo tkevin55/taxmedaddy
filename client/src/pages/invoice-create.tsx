@@ -200,10 +200,6 @@ export default function InvoiceCreate() {
     const discountAmount = (subtotal * discount) / 100;
     const taxableValue = subtotal - discountAmount;
     
-    const supplyState = placeOfSupply 
-      ? (placeOfSupply.split('-')[1]?.toUpperCase().trim() || '')
-      : (billingState?.toUpperCase().trim() || '');
-    const isSameState = supplyState && supplyState === supplierState.toUpperCase().trim();
     const taxAmount = (taxableValue * gstRate) / 100;
     
     return {
@@ -213,9 +209,9 @@ export default function InvoiceCreate() {
       discount,
       gstRate,
       taxableValue,
-      cgst: isSameState ? taxAmount / 2 : 0,
-      sgst: isSameState ? taxAmount / 2 : 0,
-      igst: isSameState ? 0 : taxAmount,
+      cgst: 0,
+      sgst: 0,
+      igst: taxAmount,
       total: taxableValue + taxAmount,
     };
   };

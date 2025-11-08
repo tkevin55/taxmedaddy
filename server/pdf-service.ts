@@ -249,12 +249,7 @@ function generateInvoiceHTML(invoice: any): string {
         <th class="text-right">Rate</th>
         <th class="text-right">Taxable</th>
         <th class="text-center">GST%</th>
-        ${isSameState ? `
-          <th class="text-right">CGST</th>
-          <th class="text-right">SGST</th>
-        ` : `
-          <th class="text-right">IGST</th>
-        `}
+        <th class="text-right">IGST</th>
         <th class="text-right">Total</th>
       </tr>
     </thead>
@@ -268,12 +263,7 @@ function generateInvoiceHTML(invoice: any): string {
           <td class="text-right">₹${parseFloat(item.rate || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.taxableValue || '0').toFixed(2)}</td>
           <td class="text-center">${parseFloat(item.gstRate || '0')}%</td>
-          ${isSameState ? `
-            <td class="text-right">₹${parseFloat(item.cgstAmount || '0').toFixed(2)}</td>
-            <td class="text-right">₹${parseFloat(item.sgstAmount || '0').toFixed(2)}</td>
-          ` : `
-            <td class="text-right">₹${parseFloat(item.igstAmount || '0').toFixed(2)}</td>
-          `}
+          <td class="text-right">₹${parseFloat(item.igstAmount || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.lineTotal || '0').toFixed(2)}</td>
         </tr>
       `).join('')}
@@ -286,21 +276,10 @@ function generateInvoiceHTML(invoice: any): string {
         <td><strong>Taxable Amount</strong></td>
         <td class="text-right">₹${parseFloat(invoice.subtotal || '0').toFixed(2)}</td>
       </tr>
-      ${isSameState ? `
-        <tr>
-          <td>CGST</td>
-          <td class="text-right">₹${parseFloat(invoice.totalCgst || '0').toFixed(2)}</td>
-        </tr>
-        <tr>
-          <td>SGST</td>
-          <td class="text-right">₹${parseFloat(invoice.totalSgst || '0').toFixed(2)}</td>
-        </tr>
-      ` : `
-        <tr>
-          <td>IGST</td>
-          <td class="text-right">₹${parseFloat(invoice.totalIgst || '0').toFixed(2)}</td>
-        </tr>
-      `}
+      <tr>
+        <td>IGST</td>
+        <td class="text-right">₹${parseFloat(invoice.totalIgst || '0').toFixed(2)}</td>
+      </tr>
       ${invoice.roundOff && parseFloat(invoice.roundOff) !== 0 ? `
         <tr>
           <td>Round Off</td>

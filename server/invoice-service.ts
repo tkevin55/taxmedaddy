@@ -58,16 +58,9 @@ export async function buildInvoiceFromOrder(
     const taxableValue = subtotal - discount;
     const taxAmount = taxableValue * gstRate;
 
-    let cgst = 0;
-    let sgst = 0;
-    let igst = 0;
-
-    if (isSameState) {
-      cgst = taxAmount / 2;
-      sgst = taxAmount / 2;
-    } else {
-      igst = taxAmount;
-    }
+    const cgst = 0;
+    const sgst = 0;
+    const igst = taxAmount;
 
     const lineTotal = taxableValue + taxAmount;
 
@@ -179,16 +172,9 @@ export function calculateInvoiceItemTotals(
       const taxableValue = subtotal - discountAmount;
       const taxAmount = taxableValue * gstRate;
 
-      let cgst = 0;
-      let sgst = 0;
-      let igst = 0;
-
-      if (isSameState) {
-        cgst = taxAmount / 2;
-        sgst = taxAmount / 2;
-      } else {
-        igst = taxAmount;
-      }
+      const cgst = 0;
+      const sgst = 0;
+      const igst = taxAmount;
 
       const lineTotal = taxableValue + taxAmount;
 
