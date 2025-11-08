@@ -43,7 +43,26 @@ type Entity = {
   pincode?: string;
   phone?: string;
   email?: string;
+  website?: string;
   invoicePrefix?: string;
+};
+
+type Bank = {
+  id: number;
+  label: string;
+  bankName: string;
+  accountNumber: string;
+  ifsc: string;
+  branch?: string;
+  upiId?: string;
+  entityId?: number;
+};
+
+type Signature = {
+  id: number;
+  label: string;
+  imageUrl: string;
+  entityId?: number;
 };
 
 const entityFormSchema = z.object({
@@ -59,10 +78,27 @@ const entityFormSchema = z.object({
   pincode: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
+  website: z.string().optional(),
   invoicePrefix: z.string().optional(),
 });
 
+const bankFormSchema = z.object({
+  label: z.string().min(1, "Label is required"),
+  bankName: z.string().min(1, "Bank name is required"),
+  accountNumber: z.string().min(1, "Account number is required"),
+  ifsc: z.string().min(1, "IFSC code is required"),
+  branch: z.string().optional(),
+  upiId: z.string().optional(),
+});
+
+const signatureFormSchema = z.object({
+  label: z.string().min(1, "Label is required"),
+  imageUrl: z.string().url("Valid URL is required"),
+});
+
 type EntityFormValues = z.infer<typeof entityFormSchema>;
+type BankFormValues = z.infer<typeof bankFormSchema>;
+type SignatureFormValues = z.infer<typeof signatureFormSchema>;
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("business");
@@ -72,7 +108,16 @@ export default function Settings() {
     queryKey: ["/api/entities"],
   });
 
+  const { data: banks, isLoading: banksLoading } = useQuery<Bank[]>({
+    queryKey: ["/api/banks"],
+  });
+
+  const { data: signatures, isLoading: signaturesLoading } = useQuery<Signature[]>({
+    queryKey: ["/api/signatures"],
+  });
+
   const entity = entities?.[0];
+  const bank = banks?.[0];
 
   const form = useForm<EntityFormValues>({
     resolver: zodResolver(entityFormSchema),
@@ -89,7 +134,20 @@ export default function Settings() {
       pincode: entity?.pincode || "",
       phone: entity?.phone || "",
       email: entity?.email || "",
+      website: entity?.website || "",
       invoicePrefix: entity?.invoicePrefix || "INV",
+    },
+  });
+
+  const bankForm = useForm<BankFormValues>({
+    resolver: zodResolver(bankFormSchema),
+    defaultValues: {
+      label: bank?.label || "Primary Bank",
+      bankName: bank?.bankName || "",
+      accountNumber: bank?.accountNumber || "",
+      ifsc: bank?.ifsc || "",
+      branch: bank?.branch || "",
+      upiId: bank?.upiId || "",
     },
   });
 
@@ -117,11 +175,43 @@ export default function Settings() {
     },
   });
 
+  const saveBankMutation = useMutation({
+    mutationFn: async (data: BankFormValues) => {
+      const payload = {
+        ...data,
+        entityId: entity?.id || null,
+      };
+      if (bank?.id) {
+        return apiRequest("PUT", `/api/banks/${bank.id}`, payload);
+      } else {
+        return apiRequest("POST", "/api/banks", payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/banks"] });
+      toast({
+        title: "Success",
+        description: "Bank details saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save bank details",
+        variant: "destructive",
+      });
+    },
+  });
+
   const onSubmitEntity = (data: EntityFormValues) => {
     saveEntityMutation.mutate(data);
   };
 
-  // Reset form when entity data loads
+  const onSubmitBank = (data: BankFormValues) => {
+    saveBankMutation.mutate(data);
+  };
+
+  // Reset forms when data loads
   useEffect(() => {
     if (entity) {
       form.reset({
@@ -137,10 +227,24 @@ export default function Settings() {
         pincode: entity.pincode || "",
         phone: entity.phone || "",
         email: entity.email || "",
+        website: entity.website || "",
         invoicePrefix: entity.invoicePrefix || "INV",
       });
     }
   }, [entity, form]);
+
+  useEffect(() => {
+    if (bank) {
+      bankForm.reset({
+        label: bank.label || "Primary Bank",
+        bankName: bank.bankName || "",
+        accountNumber: bank.accountNumber || "",
+        ifsc: bank.ifsc || "",
+        branch: bank.branch || "",
+        upiId: bank.upiId || "",
+      });
+    }
+  }, [bank, bankForm]);
 
   return (
     <div className="space-y-6">
@@ -282,7 +386,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>City</FormLabel>
                           <FormControl>
-                            <Input placeholder="Bangalore" data-testid="input-city" {...field} />
+                            <Input placeholder="Ranchi" data-testid="input-city" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -295,7 +399,7 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>State</FormLabel>
                           <FormControl>
-                            <Input placeholder="Karnataka" data-testid="input-state" {...field} />
+                            <Input placeholder="Jharkhand" data-testid="input-state" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -308,13 +412,80 @@ export default function Settings() {
                         <FormItem>
                           <FormLabel>Pincode</FormLabel>
                           <FormControl>
-                            <Input placeholder="560001" data-testid="input-pincode" {...field} />
+                            <Input placeholder="834009" data-testid="input-pincode" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="stateCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State Code</FormLabel>
+                          <FormControl>
+                            <Input placeholder="20" data-testid="input-state-code" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone</FormLabel>
+                          <FormControl>
+                            <Input placeholder="+91 8197155411" data-testid="input-phone" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="contact@maachis.art" data-testid="input-email" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Website</FormLabel>
+                        <FormControl>
+                          <Input placeholder="www.maachis.art" data-testid="input-website" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="invoicePrefix"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invoice Prefix</FormLabel>
+                        <FormControl>
+                          <Input placeholder="INV" className="font-mono" data-testid="input-invoice-prefix" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="pt-4">
                     <Button 
                       type="submit" 
@@ -334,29 +505,134 @@ export default function Settings() {
               <CardTitle>Bank Details</CardTitle>
               <CardDescription>Payment information for invoices</CardDescription>
             </CardHeader>
+            <CardContent>
+              <Form {...bankForm}>
+                <form onSubmit={bankForm.handleSubmit(onSubmitBank)} className="space-y-4">
+                  <FormField
+                    control={bankForm.control}
+                    name="label"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Label</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Primary Bank" data-testid="input-bank-label" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={bankForm.control}
+                      name="bankName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="HDFC Bank" data-testid="input-bank-name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={bankForm.control}
+                      name="accountNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Number *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="50200080109371" className="font-mono" data-testid="input-account-number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={bankForm.control}
+                      name="ifsc"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IFSC Code *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="HDFC0000150" className="font-mono" data-testid="input-ifsc" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={bankForm.control}
+                      name="branch"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Branch</FormLabel>
+                          <FormControl>
+                            <Input placeholder="main road" data-testid="input-branch" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={bankForm.control}
+                      name="upiId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>UPI ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="business@upi" data-testid="input-upi" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="pt-4">
+                    <Button 
+                      type="submit" 
+                      data-testid="button-save-bank"
+                      disabled={saveBankMutation.isPending}
+                    >
+                      {saveBankMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Signature</CardTitle>
+              <CardDescription>Upload signature image for invoices (PNG, 1:1 ratio recommended)</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bank-name">Bank Name</Label>
-                  <Input id="bank-name" data-testid="input-bank-name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="account-number">Account Number</Label>
-                  <Input id="account-number" className="font-mono" data-testid="input-account-number" />
-                </div>
+              <div className="text-sm text-muted-foreground">
+                <p>Upload your signature image and we'll include it in your invoices.</p>
+                <p className="mt-2">For best results, use a PNG image with a 1:1 aspect ratio (square).</p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ifsc">IFSC Code</Label>
-                  <Input id="ifsc" className="font-mono" data-testid="input-ifsc" />
+              {signatures && signatures.length > 0 && (
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={signatures[0].imageUrl}
+                        alt="Signature"
+                        className="h-16 w-16 object-contain border rounded"
+                      />
+                      <div>
+                        <p className="font-medium">{signatures[0].label}</p>
+                        <p className="text-xs text-muted-foreground">Current signature</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="upi">UPI ID</Label>
-                  <Input id="upi" placeholder="business@upi" data-testid="input-upi" />
-                </div>
-              </div>
-              <div className="pt-4">
-                <Button data-testid="button-save-bank">Save Changes</Button>
+              )}
+              <div className="text-sm text-muted-foreground">
+                <p>To add or update your signature, please upload the image file to your server and provide the URL below.</p>
               </div>
             </CardContent>
           </Card>
