@@ -124,7 +124,20 @@ export default function Products() {
 
   const createMutation = useMutation({
     mutationFn: async (data: ProductFormValues) => {
-      return apiRequest("POST", "/api/products", data);
+      const cleanedData = {
+        ...data,
+        defaultPrice: data.defaultPrice === "" ? undefined : data.defaultPrice,
+        purchasePrice: data.purchasePrice === "" ? undefined : data.purchasePrice,
+        hsnCode: data.hsnCode === "" ? undefined : data.hsnCode,
+        gstRate: data.gstRate === "" ? undefined : data.gstRate,
+        sku: data.sku === "" ? undefined : data.sku,
+        description: data.description === "" ? undefined : data.description,
+        unit: data.unit === "" ? undefined : data.unit,
+        barcode: data.barcode === "" ? undefined : data.barcode,
+        category: data.category === "" ? undefined : data.category,
+        imageUrl: data.imageUrl === "" ? undefined : data.imageUrl,
+      };
+      return apiRequest("POST", "/api/products", cleanedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -146,7 +159,20 @@ export default function Products() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: ProductFormValues }) => {
-      return apiRequest("PUT", `/api/products/${id}`, data);
+      const cleanedData = {
+        ...data,
+        defaultPrice: data.defaultPrice === "" ? undefined : data.defaultPrice,
+        purchasePrice: data.purchasePrice === "" ? undefined : data.purchasePrice,
+        hsnCode: data.hsnCode === "" ? undefined : data.hsnCode,
+        gstRate: data.gstRate === "" ? undefined : data.gstRate,
+        sku: data.sku === "" ? undefined : data.sku,
+        description: data.description === "" ? undefined : data.description,
+        unit: data.unit === "" ? undefined : data.unit,
+        barcode: data.barcode === "" ? undefined : data.barcode,
+        category: data.category === "" ? undefined : data.category,
+        imageUrl: data.imageUrl === "" ? undefined : data.imageUrl,
+      };
+      return apiRequest("PUT", `/api/products/${id}`, cleanedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/products"] });
@@ -170,8 +196,8 @@ export default function Products() {
     mutationFn: async (id: number) => {
       return apiRequest("DELETE", `/api/products/${id}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+    onSuccess: async () => {
+      await queryClient.refetchQueries({ queryKey: ["/api/products"] });
       toast({
         title: "Success",
         description: "Product deleted successfully",

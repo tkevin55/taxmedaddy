@@ -415,6 +415,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/products/:id", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      const existing = await db.query.products.findFirst({
+        where: and(
+          eq(schema.products.id, id),
+          eq(schema.products.accountId, req.user!.accountId)
+        ),
+      });
+
+      if (!existing) {
+        return res.status(404).json({ error: "Product not found" });
+      }
+
+      await db.delete(schema.products).where(eq(schema.products.id, id));
+
+      await logAudit(req.user!.accountId, req.user!.userId, "delete", "product", id, existing, null);
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ error: "Failed to delete product" });
+    }
+  });
+
   app.get("/api/orders", requireAuth, async (req: AuthRequest, res) => {
     try {
       const orders = await db.query.orders.findMany({
