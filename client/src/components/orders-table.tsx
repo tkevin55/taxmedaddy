@@ -24,7 +24,7 @@ interface Order {
   date: string;
   customer: string;
   amount: string;
-  paymentStatus: 'paid' | 'pending' | 'partial' | 'refunded';
+  paymentStatus: string;
   fulfillmentStatus: 'fulfilled' | 'unfulfilled' | 'partial';
   invoiceStatus: 'invoiced' | 'uninvoiced';
   invoiceNumber?: string;
@@ -34,20 +34,23 @@ interface OrdersTableProps {
   orders: Order[];
   onSelectOrder?: (orderId: string, selected: boolean) => void;
   selectedOrders?: string[];
+  onGenerateInvoice?: (orderId: string) => void;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   paid: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  unpaid: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   partial: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   refunded: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  overdue: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
   fulfilled: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   unfulfilled: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
   invoiced: 'bg-primary/10 text-primary dark:bg-primary/20',
   uninvoiced: 'bg-muted text-muted-foreground',
 };
 
-export function OrdersTable({ orders, onSelectOrder, selectedOrders = [] }: OrdersTableProps) {
+export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice }: OrdersTableProps) {
   const [selected, setSelected] = useState<string[]>(selectedOrders);
 
   const handleSelectAll = (checked: boolean) => {
@@ -107,7 +110,7 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [] }: Orde
               <TableCell>{order.customer}</TableCell>
               <TableCell className="font-mono">{order.amount}</TableCell>
               <TableCell>
-                <Badge variant="outline" className={`${statusColors[order.paymentStatus]} border-0`}>
+                <Badge variant="outline" className={`${statusColors[order.paymentStatus] || 'bg-gray-100 text-gray-800'} border-0`}>
                   {order.paymentStatus}
                 </Badge>
               </TableCell>
@@ -125,7 +128,12 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [] }: Orde
                     </Badge>
                   </div>
                 ) : (
-                  <Button size="sm" variant="outline" data-testid={`button-create-invoice-${order.id}`}>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => onGenerateInvoice?.(order.id)}
+                    data-testid={`button-create-invoice-${order.id}`}
+                  >
                     <FileText className="w-3 h-3 mr-1" />
                     Create Invoice
                   </Button>
@@ -144,7 +152,10 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [] }: Orde
                       View in Shopify
                     </DropdownMenuItem>
                     {order.invoiceStatus === 'uninvoiced' && (
-                      <DropdownMenuItem data-testid={`button-generate-invoice-${order.id}`}>
+                      <DropdownMenuItem 
+                        onClick={() => onGenerateInvoice?.(order.id)}
+                        data-testid={`button-generate-invoice-${order.id}`}
+                      >
                         <FileText className="w-4 h-4 mr-2" />
                         Generate Invoice
                       </DropdownMenuItem>

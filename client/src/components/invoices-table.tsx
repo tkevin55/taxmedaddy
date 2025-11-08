@@ -25,18 +25,23 @@ interface Invoice {
   amount: string;
   gstAmount: string;
   totalAmount: string;
-  status: 'draft' | 'sent' | 'paid';
+  status: string; // Allow any backend status value
   type: 'tax_invoice' | 'bill_of_supply' | 'export_invoice';
+  hasPdf?: boolean;
 }
 
 interface InvoicesTableProps {
   invoices: Invoice[];
+  onDownloadPDF?: (invoiceId: string, invoiceNumber: string) => void;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   draft: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
   sent: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   paid: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  unpaid: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  overdue: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  partial: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
 const typeLabels = {
@@ -45,7 +50,7 @@ const typeLabels = {
   export_invoice: 'Export Invoice',
 };
 
-export function InvoicesTable({ invoices }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, onDownloadPDF }: InvoicesTableProps) {
   return (
     <div className="border rounded-lg">
       <Table>
@@ -79,7 +84,7 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
               <TableCell className="font-mono">{invoice.gstAmount}</TableCell>
               <TableCell className="font-mono font-medium">{invoice.totalAmount}</TableCell>
               <TableCell>
-                <Badge variant="outline" className={`${statusColors[invoice.status]} border-0`}>
+                <Badge variant="outline" className={`${statusColors[invoice.status] || 'bg-gray-100 text-gray-800'} border-0`}>
                   {invoice.status}
                 </Badge>
               </TableCell>
@@ -95,10 +100,15 @@ export function InvoicesTable({ invoices }: InvoicesTableProps) {
                       <Eye className="w-4 h-4 mr-2" />
                       View Invoice
                     </DropdownMenuItem>
-                    <DropdownMenuItem data-testid={`button-download-${invoice.id}`}>
-                      <Download className="w-4 h-4 mr-2" />
-                      Download PDF
-                    </DropdownMenuItem>
+                    {invoice.hasPdf && (
+                      <DropdownMenuItem 
+                        onClick={() => onDownloadPDF?.(invoice.id, invoice.invoiceNumber)}
+                        data-testid={`button-download-${invoice.id}`}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download PDF
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem data-testid={`button-send-${invoice.id}`}>
                       <Send className="w-4 h-4 mr-2" />
                       Send to Customer

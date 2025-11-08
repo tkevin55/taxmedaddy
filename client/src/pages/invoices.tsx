@@ -1,75 +1,108 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Plus, Download, Filter } from "lucide-react";
 import { InvoicesTable } from "@/components/invoices-table";
 import { FilterPanel } from "@/components/filter-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+
+type Invoice = {
+  id: number;
+  invoiceNumber: string;
+  invoiceDate: string;
+  buyerName: string;
+  buyerGstin?: string;
+  subtotal: string;
+  totalCgst: string;
+  totalSgst: string;
+  totalIgst: string;
+  grandTotal: string;
+  paymentStatus: string;
+  isDraft: boolean;
+  type: string;
+  pdfUrl?: string;
+};
 
 export default function Invoices() {
   const [showFilters, setShowFilters] = useState(false);
+  const { toast } = useToast();
 
-  const invoices = [
-    {
-      id: '1',
-      invoiceNumber: 'MAA/24-25/001',
-      date: '2024-01-15',
-      customer: 'Rajesh Kumar',
-      gstin: '29ABCDE1234F1Z5',
-      amount: '₹12,450',
-      gstAmount: '₹2,241',
-      totalAmount: '₹14,691',
-      status: 'paid' as const,
-      type: 'tax_invoice' as const,
-    },
-    {
-      id: '2',
-      invoiceNumber: 'MAA/24-25/002',
-      date: '2024-01-15',
-      customer: 'Priya Sharma',
-      gstin: '29XYZAB5678C2D9',
-      amount: '₹8,900',
-      gstAmount: '₹1,602',
-      totalAmount: '₹10,502',
-      status: 'sent' as const,
-      type: 'tax_invoice' as const,
-    },
-    {
-      id: '3',
-      invoiceNumber: 'MAA/24-25/003',
-      date: '2024-01-16',
-      customer: 'Global Exports Inc',
-      amount: '₹15,600',
-      gstAmount: '₹0',
-      totalAmount: '₹15,600',
-      status: 'draft' as const,
-      type: 'export_invoice' as const,
-    },
-    {
-      id: '4',
-      invoiceNumber: 'MAA/24-25/004',
-      date: '2024-01-16',
-      customer: 'Tech Solutions Pvt Ltd',
-      gstin: '29PQRST9012E3F4',
-      amount: '₹22,400',
-      gstAmount: '₹4,032',
-      totalAmount: '₹26,432',
-      status: 'sent' as const,
-      type: 'tax_invoice' as const,
-    },
-    {
-      id: '5',
-      invoiceNumber: 'MAA/24-25/005',
-      date: '2024-01-17',
-      customer: 'Fashion Retail Ltd',
-      gstin: '29GHIJK3456L7M8',
-      amount: '₹9,850',
-      gstAmount: '₹1,773',
-      totalAmount: '₹11,623',
-      status: 'paid' as const,
-      type: 'tax_invoice' as const,
-    },
-  ];
+  const { data: invoicesData, isLoading } = useQuery<Invoice[]>({
+    queryKey: ["/api/invoices"],
+  });
+
+  const handleDownloadPDF = (invoiceId: string, invoiceNumber: string) => {
+    const token = localStorage.getItem("auth_token");
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    fetch(`/api/invoices/${invoiceId}/pdf`, {
+      method: "GET",
+      headers,
+      credentials: "include",
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error("Failed to download PDF");
+        }
+        return res.blob();
+      })
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${invoiceNumber}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch(error => {
+        toast({
+          title: "Download Failed",
+          description: error.message || "Could not download PDF",
+          variant: "destructive",
+        });
+      });
+  };
+
+  const invoices = invoicesData?.map(invoice => {
+    const totalGst = parseFloat(invoice.totalCgst || "0") + 
+                     parseFloat(invoice.totalSgst || "0") + 
+                     parseFloat(invoice.totalIgst || "0");
+    
+    // Use real backend status - don't collapse values
+    let status = invoice.paymentStatus || 'unpaid';
+    if (invoice.isDraft) {
+      status = 'draft';
+    }
+
+    // Map backend type to UI type format
+    let invoiceType: 'tax_invoice' | 'bill_of_supply' | 'export_invoice' = 'tax_invoice';
+    if (invoice.type === 'export') {
+      invoiceType = 'export_invoice';
+    } else if (invoice.type === 'bill_of_supply') {
+      invoiceType = 'bill_of_supply';
+    }
+
+    return {
+      id: invoice.id.toString(),
+      invoiceNumber: invoice.invoiceNumber || `INV-${invoice.id}`,
+      date: new Date(invoice.invoiceDate).toLocaleDateString(),
+      customer: invoice.buyerName,
+      gstin: invoice.buyerGstin,
+      amount: `₹${parseFloat(invoice.subtotal).toFixed(2)}`,
+      gstAmount: `₹${totalGst.toFixed(2)}`,
+      totalAmount: `₹${parseFloat(invoice.grandTotal).toFixed(2)}`,
+      status,
+      type: invoiceType,
+      hasPdf: !!invoice.pdfUrl,
+    };
+  }) || [];
 
   return (
     <div className="space-y-6">
@@ -120,7 +153,15 @@ export default function Invoices() {
             </Button>
           </div>
 
-          <InvoicesTable invoices={invoices} />
+          {isLoading ? (
+            <div className="text-center py-8 text-muted-foreground">Loading invoices...</div>
+          ) : invoices.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No invoices found. Generate invoices from your orders to get started.
+            </div>
+          ) : (
+            <InvoicesTable invoices={invoices} onDownloadPDF={handleDownloadPDF} />
+          )}
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <p>Showing 1-5 of 248 invoices</p>
