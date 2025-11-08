@@ -230,7 +230,7 @@ export default function InvoiceCreate() {
         unit: 'UNT',
         rate: 0,
         discount: 0,
-        gstRate: 18,
+        gstRate: 5,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -334,7 +334,7 @@ export default function InvoiceCreate() {
         unit: 'UNT',
         rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
         discount: 0,
-        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '18'),
+        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -349,7 +349,7 @@ export default function InvoiceCreate() {
         unit: 'UNT',
         rate: 0,
         discount: 0,
-        gstRate: 18,
+        gstRate: 5,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -413,7 +413,7 @@ export default function InvoiceCreate() {
       unit: 'UNT',
       rate: 0,
       discount: 0,
-      gstRate: 18,
+      gstRate: 5,
       taxableValue: 0,
       cgst: 0,
       sgst: 0,
@@ -437,7 +437,7 @@ export default function InvoiceCreate() {
     updateItem(itemIndex, 'description', product.name);
     updateItem(itemIndex, 'hsn', product.hsnCode || '');
     updateItem(itemIndex, 'rate', parseFloat(product.defaultPrice || '0'));
-    updateItem(itemIndex, 'gstRate', parseFloat(product.gstRate || '18'));
+    updateItem(itemIndex, 'gstRate', parseFloat(product.gstRate || '5'));
     setProductSearchQuery("");
     setProductSearchOpen(false);
   };
