@@ -827,12 +827,26 @@ export default function InvoiceCreate() {
 
                     <div className="space-y-2">
                       <Label className="text-xs">Product Name</Label>
-                      <Input
-                        placeholder="Enter product name"
-                        value={item.description}
-                        onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        data-testid={`input-product-name-${index}`}
-                      />
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter product name"
+                          value={item.description}
+                          onChange={(e) => updateItem(index, 'description', e.target.value)}
+                          data-testid={`input-product-name-${index}`}
+                          className="flex-1"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            setSelectedLineItemIndex(index);
+                            setProductSearchOpen(true);
+                          }}
+                          data-testid={`button-search-product-${index}`}
+                        >
+                          <Search className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
 
                     {showDescription && (
