@@ -51,25 +51,16 @@ const statusColors: Record<string, string> = {
 };
 
 export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice }: OrdersTableProps) {
-  const [selected, setSelected] = useState<string[]>(selectedOrders);
-
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const allIds = orders.map(o => o.id);
-      setSelected(allIds);
       allIds.forEach(id => onSelectOrder?.(id, true));
     } else {
-      selected.forEach(id => onSelectOrder?.(id, false));
-      setSelected([]);
+      selectedOrders.forEach(id => onSelectOrder?.(id, false));
     }
   };
 
   const handleSelect = (orderId: string, checked: boolean) => {
-    if (checked) {
-      setSelected([...selected, orderId]);
-    } else {
-      setSelected(selected.filter(id => id !== orderId));
-    }
     onSelectOrder?.(orderId, checked);
   };
 
@@ -80,7 +71,7 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGene
           <TableRow>
             <TableHead className="w-12">
               <Checkbox
-                checked={selected.length === orders.length && orders.length > 0}
+                checked={selectedOrders.length === orders.length && orders.length > 0}
                 onCheckedChange={handleSelectAll}
                 data-testid="checkbox-select-all"
               />
@@ -100,7 +91,7 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGene
             <TableRow key={order.id} data-testid={`row-order-${order.id}`}>
               <TableCell>
                 <Checkbox
-                  checked={selected.includes(order.id)}
+                  checked={selectedOrders.includes(order.id)}
                   onCheckedChange={(checked) => handleSelect(order.id, checked as boolean)}
                   data-testid={`checkbox-order-${order.id}`}
                 />
