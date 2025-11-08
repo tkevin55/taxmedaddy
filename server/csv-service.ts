@@ -91,6 +91,7 @@ export async function importProductsFromCSV(
         defaultPrice: row["Variant Price"] || "0.00",
         hsnCode: hsnCode,
         gstRate: gstRate,
+        category: row.Type || "",
         shopifyProductId: row.Handle || null,
       };
 
