@@ -82,6 +82,25 @@ function generateInvoiceHTML(invoice: any): string {
 
   const amountInWords = numberToWords(parseFloat(invoice.grandTotal || "0"));
 
+  let signatureDataUrl = null;
+  if (signature && signature.imageUrl) {
+    try {
+      const relativePath = signature.imageUrl.startsWith('/') 
+        ? signature.imageUrl.substring(1) 
+        : signature.imageUrl;
+      const signaturePath = path.join(process.cwd(), relativePath);
+      if (fs.existsSync(signaturePath)) {
+        const imageBuffer = fs.readFileSync(signaturePath);
+        const base64Image = imageBuffer.toString('base64');
+        const ext = path.extname(signature.imageUrl).toLowerCase();
+        const mimeType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+        signatureDataUrl = `data:${mimeType};base64,${base64Image}`;
+      }
+    } catch (error) {
+      console.error('Error loading signature image:', error);
+    }
+  }
+
   return `
 <!DOCTYPE html>
 <html>
@@ -90,100 +109,143 @@ function generateInvoiceHTML(invoice: any): string {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
-      font-size: 9pt;
-      line-height: 1.4;
-      color: #000;
-      padding: 10px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: #1a1a1a;
+      padding: 16px;
+      background: #ffffff;
     }
     .header-label {
       text-align: right;
-      font-size: 8pt;
-      color: #666;
-      margin-bottom: 4px;
+      font-size: 7pt;
+      color: #6b7280;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
     .company-header {
       text-align: center;
-      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 16px;
     }
     .company-header h1 {
-      font-size: 16pt;
-      font-weight: bold;
-      margin-bottom: 2px;
+      font-size: 18pt;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #111827;
     }
     .company-header p {
-      font-size: 8pt;
-      margin: 1px 0;
+      font-size: 9pt;
+      margin: 2px 0;
+      color: #374151;
     }
     .section {
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
     .flex-row {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
+      margin-bottom: 12px;
     }
     .box {
-      border: 1px solid #000;
-      padding: 6px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      padding: 10px;
       flex: 1;
+      background-color: #f9fafb;
     }
     .box-header {
-      font-weight: bold;
-      margin-bottom: 3px;
-      font-size: 8pt;
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 9pt;
+      color: #111827;
     }
     .box-content p {
-      font-size: 8pt;
-      margin: 2px 0;
+      font-size: 9pt;
+      margin: 3px 0;
+      color: #374151;
+    }
+    .box-content strong {
+      font-weight: 600;
+      color: #111827;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 8px 0;
+      margin: 12px 0;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      overflow: hidden;
     }
     table th, table td {
-      border: 1px solid #000;
-      padding: 4px;
+      border: 1px solid #e5e7eb;
+      padding: 8px 6px;
       text-align: left;
-      font-size: 8pt;
+      font-size: 9pt;
     }
     table th {
-      background-color: #f0f0f0;
-      font-weight: bold;
+      background-color: #f3f4f6;
+      font-weight: 600;
+      color: #111827;
+      text-transform: capitalize;
+    }
+    table td {
+      color: #374151;
     }
     .text-right { text-align: right; }
     .text-center { text-align: center; }
     .totals-section {
-      margin-top: 8px;
+      margin-top: 12px;
+      margin-bottom: 12px;
     }
     .totals-table {
-      width: 300px;
+      width: 320px;
       margin-left: auto;
+      border: 1px solid #d1d5db;
+    }
+    .totals-table td {
+      padding: 6px 10px;
+      font-size: 9pt;
     }
     .grand-total {
-      font-weight: bold;
-      background-color: #f0f0f0;
+      font-weight: 700;
+      background-color: #f3f4f6;
+      font-size: 10pt;
     }
     .footer {
-      margin-top: 12px;
-      font-size: 7pt;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 8pt;
       text-align: center;
-      color: #666;
+      color: #6b7280;
     }
     .signature-section {
-      margin-top: 20px;
+      margin-top: 24px;
       text-align: right;
+      padding-top: 12px;
+    }
+    .signature-section p {
+      font-size: 9pt;
+      margin: 3px 0;
+      color: #374151;
+    }
+    .signature-section strong {
+      font-weight: 600;
+      color: #111827;
     }
     .signature-image {
-      max-width: 150px;
-      max-height: 60px;
-      margin-bottom: 4px;
+      max-width: 180px;
+      max-height: 70px;
+      margin-bottom: 8px;
     }
     .company-logo {
-      max-width: 120px;
-      max-height: 80px;
-      margin: 0 auto 8px;
+      max-width: 140px;
+      max-height: 90px;
+      margin: 0 auto 10px;
       display: block;
     }
   </style>
@@ -338,8 +400,8 @@ function generateInvoiceHTML(invoice: any): string {
   ` : ''}
 
   <div class="signature-section">
-    ${signature && signature.imageUrl ? `
-      <img src="${signature.imageUrl}" class="signature-image" alt="Signature" />
+    ${signatureDataUrl ? `
+      <img src="${signatureDataUrl}" class="signature-image" alt="Signature" />
     ` : ''}
     <p><strong>Authorized Signatory</strong></p>
     <p>${entity.displayName}</p>
