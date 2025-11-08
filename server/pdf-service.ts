@@ -316,19 +316,23 @@ function generateInvoiceHTML(invoice: any): string {
     <div class="box-header">Bank Details</div>
     <table>
       <tr>
-        <td><strong>Bank Name</strong></td>
+        <td><strong>Bank</strong></td>
         <td>${bank.bankName}</td>
-        <td><strong>Account Number</strong></td>
+        <td><strong>Account #</strong></td>
         <td>${bank.accountNumber}</td>
       </tr>
       <tr>
         <td><strong>IFSC Code</strong></td>
         <td>${bank.ifsc}</td>
-        ${bank.upiId ? `
-          <td><strong>UPI ID</strong></td>
-          <td>${bank.upiId}</td>
-        ` : '<td colspan="2"></td>'}
+        <td><strong>Branch</strong></td>
+        <td>${bank.branch || '-'}</td>
       </tr>
+      ${bank.upiId ? `
+      <tr>
+        <td><strong>UPI ID</strong></td>
+        <td colspan="3">${bank.upiId}</td>
+      </tr>
+      ` : ''}
     </table>
   </div>
   ` : ''}
