@@ -201,6 +201,46 @@ PUT /api/products/:id
 Authorization: Bearer <token>
 ```
 
+### Import Products from CSV
+```http
+POST /api/products/import-csv
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Form Data:
+- file: [CSV file]
+```
+
+**CSV Format (Shopify Export):**
+- Columns: Handle, Title, Body (HTML), Vendor, Product Category, Type, Tags, Published, Option1 Name, Option1 Value, Variant SKU, Variant Price, Variant Tax Code, Image Src
+- Column mapping:
+  - `Title` → `name`
+  - `Variant SKU` → `sku`
+  - `Body (HTML)` → `description`
+  - `Variant Price` → `defaultPrice`
+  - `Variant Tax Code` → `hsnCode` + `gstRate` (parsed)
+  - `Handle` → `shopifyProductId`
+
+**Response:**
+```json
+{
+  "message": "Products import completed",
+  "importedCount": 10,
+  "updatedCount": 5,
+  "skipped": 2,
+  "errors": []
+}
+```
+
+**Note:** Products are upserted by SKU - existing products are updated, new products are created.
+
+### Download Products CSV Template
+```http
+GET /api/products/sample-csv
+```
+
+Returns a CSV template with sample data showing the expected column format.
+
 ## Orders API
 
 ### List Orders
@@ -247,6 +287,53 @@ Content-Type: application/json
   ]
 }
 ```
+
+### Import Orders from CSV
+```http
+POST /api/orders/import-csv
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+
+Form Data:
+- file: [CSV file]
+```
+
+**CSV Format (Shopify Export):**
+- Columns: Name, Email, Created at, Lineitem name, Lineitem quantity, Lineitem price, Shipping Province Code, Billing Province Code, Shipping Name, Shipping Address1, Shipping City, Shipping Zip, Lineitem sku, Lineitem tax, etc.
+- **Important:** Multiple rows with the same `Name` are grouped into a single order with multiple line items
+- Column mapping:
+  - `Name` → `shopifyOrderNumber` (order identifier)
+  - `Email` → `customerEmail`
+  - `Created at` → `orderDate`
+  - `Shipping Name` → `customerName`
+  - `Lineitem name` → order item `name`
+  - `Lineitem sku` → order item `sku` (used to fetch HSN/GST from products)
+  - `Lineitem quantity` → order item `quantity`
+  - `Lineitem price` → order item `unitPrice`
+  - `Shipping Province Code` → `shippingStateCode` (mapped to full state name)
+
+**Response:**
+```json
+{
+  "message": "Orders import completed",
+  "importedCount": 25,
+  "skipped": 1,
+  "duplicates": 3,
+  "errors": []
+}
+```
+
+**Note:** 
+- Orders are identified by `Name` (Shopify order number) - duplicates are skipped
+- HSN codes and GST rates are automatically fetched from products by matching SKU
+- Multiple CSV rows with same order name are combined into one order with multiple items
+
+### Download Orders CSV Template
+```http
+GET /api/orders/sample-csv
+```
+
+Returns a CSV template with sample data showing the expected column format.
 
 ### Create Invoice from Order
 ```http
@@ -451,6 +538,43 @@ const fetchInvoices = async () => {
     headers: { 'Authorization': `Bearer ${token}` },
   });
   return response.json();
+};
+
+// Import products from CSV
+const importProductsCSV = async (file) => {
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/products/import-csv', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+  });
+  return response.json();
+};
+
+// Import orders from CSV
+const importOrdersCSV = async (file) => {
+  const token = localStorage.getItem('token');
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const response = await fetch('/api/orders/import-csv', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+  });
+  return response.json();
+};
+
+// Download sample CSV templates
+const downloadProductTemplate = () => {
+  window.open('/api/products/sample-csv', '_blank');
+};
+
+const downloadOrderTemplate = () => {
+  window.open('/api/orders/sample-csv', '_blank');
 };
 
 // Create invoice from order
