@@ -1,4 +1,4 @@
-import { MoreVertical, FileText, ExternalLink, Check } from "lucide-react";
+import { MoreVertical, FileText, ExternalLink, Check, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,6 +34,7 @@ interface OrdersTableProps {
   onSelectOrder?: (orderId: string, selected: boolean) => void;
   selectedOrders?: string[];
   onGenerateInvoice?: (orderId: string) => void;
+  onViewDetails?: (orderId: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -49,7 +50,7 @@ const statusColors: Record<string, string> = {
   uninvoiced: 'bg-muted text-muted-foreground',
 };
 
-export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice }: OrdersTableProps) {
+export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice, onViewDetails }: OrdersTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const allIds = orders.map(o => o.id);
@@ -137,6 +138,13 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGene
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                      onClick={() => onViewDetails?.(order.id)}
+                      data-testid={`button-view-details-${order.id}`}
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      View Details
+                    </DropdownMenuItem>
                     <DropdownMenuItem data-testid={`button-view-order-${order.id}`}>
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View in Shopify

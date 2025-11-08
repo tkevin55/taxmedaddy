@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Upload, Filter, AlertCircle, CheckCircle } from "lucide-react";
+import { Search, Upload, Filter, AlertCircle, CheckCircle, FileText } from "lucide-react";
 import { OrdersTable } from "@/components/orders-table";
 import { FilterPanel } from "@/components/filter-panel";
 import { BulkActionsBar } from "@/components/bulk-actions-bar";
@@ -16,6 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,9 +52,20 @@ type Order = {
   total: string;
   subtotal: string;
   taxTotal: string;
+  discountTotal: string;
+  shippingTotal: string;
   paymentStatus: string;
   hasInvoice: boolean;
   invoiceNumber?: string;
+  items?: Array<{
+    id: number;
+    name: string;
+    sku?: string;
+    hsnCode?: string;
+    quantity: number;
+    unitPrice: string;
+    gstRate: number;
+  }>;
 };
 
 type Entity = {
@@ -63,6 +82,7 @@ export default function Orders() {
   const [importResult, setImportResult] = useState<any>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<string | null>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -72,6 +92,11 @@ export default function Orders() {
 
   const { data: entitiesData, isLoading: entitiesLoading } = useQuery<Entity[]>({
     queryKey: ["/api/entities"],
+  });
+
+  const { data: orderDetails } = useQuery<Order>({
+    queryKey: ["/api/orders", selectedOrderForDetails],
+    enabled: !!selectedOrderForDetails,
   });
 
   const importMutation = useMutation({
@@ -239,6 +264,10 @@ export default function Orders() {
     navigate(`/invoices/new?orderId=${orderId}`);
   };
 
+  const handleViewDetails = (orderId: string) => {
+    setSelectedOrderForDetails(orderId);
+  };
+
   const handleBulkDelete = () => {
     setIsDeleteConfirmOpen(true);
   };
@@ -360,6 +389,7 @@ export default function Orders() {
               onSelectOrder={handleSelectOrder}
               selectedOrders={selectedOrders}
               onGenerateInvoice={handleGenerateInvoice}
+              onViewDetails={handleViewDetails}
             />
           )}
 
@@ -519,6 +549,150 @@ export default function Orders() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!selectedOrderForDetails} onOpenChange={() => setSelectedOrderForDetails(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-order-details">
+          <DialogHeader>
+            <DialogTitle>Order Details</DialogTitle>
+            <DialogDescription>
+              {orderDetails?.shopifyOrderNumber || 'Loading...'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {orderDetails && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Order Date</Label>
+                  <p className="font-medium">{new Date(orderDetails.orderDate).toLocaleDateString('en-IN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Payment Status</Label>
+                  <p className="font-medium capitalize">{orderDetails.paymentStatus}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground text-xs">Customer Information</Label>
+                <div className="mt-2 space-y-1">
+                  <p className="font-medium">{orderDetails.customerName}</p>
+                  {orderDetails.customerEmail && <p className="text-sm">{orderDetails.customerEmail}</p>}
+                  {orderDetails.customerPhone && <p className="text-sm">{orderDetails.customerPhone}</p>}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground text-xs">Billing Address</Label>
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{orderDetails.billingAddress || 'N/A'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">Shipping Address</Label>
+                  <p className="text-sm mt-1 whitespace-pre-wrap">{orderDetails.shippingAddress || 'N/A'}</p>
+                  {orderDetails.shippingState && (
+                    <p className="text-sm mt-1">
+                      <span className="font-medium">State:</span> {orderDetails.shippingState} ({orderDetails.shippingStateCode})
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-muted-foreground text-xs mb-2">Order Items</Label>
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Unit Price</TableHead>
+                        <TableHead className="text-right">GST Rate</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orderDetails.items?.map((item: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-sm">{item.name}</p>
+                              {item.sku && <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>}
+                              {item.hsnCode && <p className="text-xs text-muted-foreground">HSN: {item.hsnCode}</p>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right font-mono">₹{parseFloat(item.unitPrice).toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{item.gstRate}%</TableCell>
+                          <TableCell className="text-right font-mono font-medium">
+                            ₹{(item.quantity * parseFloat(item.unitPrice)).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="space-y-2 max-w-sm ml-auto">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="font-mono">₹{parseFloat(orderDetails.subtotal).toFixed(2)}</span>
+                  </div>
+                  {parseFloat(orderDetails.discountTotal) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discount:</span>
+                      <span className="font-mono">-₹{parseFloat(orderDetails.discountTotal).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {parseFloat(orderDetails.shippingTotal) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Shipping:</span>
+                      <span className="font-mono">₹{parseFloat(orderDetails.shippingTotal).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {parseFloat(orderDetails.taxTotal) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Tax:</span>
+                      <span className="font-mono">₹{parseFloat(orderDetails.taxTotal).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-medium text-lg border-t pt-2">
+                    <span>Total:</span>
+                    <span className="font-mono">₹{parseFloat(orderDetails.total).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setSelectedOrderForDetails(null)}
+              data-testid="button-close-details"
+            >
+              Close
+            </Button>
+            {orderDetails && !orderDetails.hasInvoice && (
+              <Button
+                onClick={() => {
+                  setSelectedOrderForDetails(null);
+                  handleGenerateInvoice(selectedOrderForDetails!);
+                }}
+                data-testid="button-create-invoice-from-details"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Create Invoice
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
