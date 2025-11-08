@@ -247,6 +247,8 @@ export async function importOrdersFromCSV(
       
       const orderTotal = orderSubtotal + orderTaxTotal;
       
+      const paymentStatus = mapFinancialStatusToPaymentStatus(firstRow["Financial Status"] || "");
+      
       const rawJsonData = {
         'Financial Status': firstRow["Financial Status"] || "",
         'Paid at': firstRow["Paid at"] || "",
@@ -276,6 +278,7 @@ export async function importOrdersFromCSV(
         subtotal: orderSubtotal.toFixed(2),
         taxTotal: orderTaxTotal.toFixed(2),
         total: orderTotal.toFixed(2),
+        paymentStatus: paymentStatus,
         hasInvoice: false,
         rawJson: rawJsonData,
       }).returning();
@@ -311,6 +314,18 @@ function deriveGSTRateFromTaxCode(taxCode: string): string {
   if (cleaned.includes("28") || cleaned.includes("twenty")) return "28.00";
   
   return "18.00";
+}
+
+function mapFinancialStatusToPaymentStatus(financialStatus: string): string {
+  const status = financialStatus.trim().toLowerCase();
+  
+  if (status === 'paid') return 'paid';
+  if (status === 'pending') return 'pending';
+  if (status === 'partially_paid' || status === 'partially paid' || status === 'partial') return 'partial';
+  if (status === 'refunded') return 'refunded';
+  if (status === 'unpaid' || status === '') return 'unpaid';
+  
+  return 'unpaid';
 }
 
 function mapProvinceCodeToState(code: string): string {
