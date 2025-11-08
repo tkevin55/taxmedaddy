@@ -44,6 +44,7 @@ type Entity = {
   phone?: string;
   email?: string;
   website?: string;
+  logoUrl?: string;
   invoicePrefix?: string;
 };
 
@@ -79,6 +80,7 @@ const entityFormSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   website: z.string().optional(),
+  logoUrl: z.string().optional(),
   invoicePrefix: z.string().optional(),
 });
 
@@ -135,6 +137,7 @@ export default function Settings() {
       phone: entity?.phone || "",
       email: entity?.email || "",
       website: entity?.website || "",
+      logoUrl: entity?.logoUrl || "",
       invoicePrefix: entity?.invoicePrefix || "INV",
     },
   });
@@ -470,6 +473,33 @@ export default function Settings() {
                           <Input placeholder="www.maachis.art" data-testid="input-website" {...field} />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="logoUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Logo URL</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/logo.png" data-testid="input-logo-url" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        {field.value && (
+                          <div className="mt-2 border rounded-lg p-3 bg-muted/30">
+                            <p className="text-xs text-muted-foreground mb-2">Logo Preview:</p>
+                            <img
+                              src={field.value}
+                              alt="Company Logo"
+                              className="h-16 object-contain"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
                       </FormItem>
                     )}
                   />
