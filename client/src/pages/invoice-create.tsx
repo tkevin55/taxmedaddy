@@ -50,13 +50,20 @@ type Order = {
 
 export default function InvoiceCreate() {
   const [location] = useLocation();
-  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
 
-  const { data: orderData } = useQuery<Order>({
+  const { data: orderData, isLoading: orderLoading } = useQuery<Order>({
     queryKey: ["/api/orders", orderId],
     enabled: !!orderId,
   });
+
+  useEffect(() => {
+    console.log('Location:', location);
+    console.log('Window search:', window.location.search);
+    console.log('Order ID:', orderId);
+    console.log('Order Data:', orderData);
+  }, [location, orderId, orderData]);
   const [showCustomHeaders, setShowCustomHeaders] = useState(false);
   const [showDescription, setShowDescription] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
@@ -210,6 +217,7 @@ export default function InvoiceCreate() {
 
   useEffect(() => {
     if (orderData) {
+      console.log('Populating form from order data...');
       const placeOfSupply = orderData.shippingStateCode && orderData.shippingState
         ? `${orderData.shippingStateCode}-${orderData.shippingState}`
         : '';
@@ -219,11 +227,11 @@ export default function InvoiceCreate() {
         description: item.name || '',
         details: '',
         hsn: item.hsnCode || '',
-        quantity: parseFloat(item.quantity || '1'),
+        quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1'),
         unit: 'UNT',
-        rate: parseFloat(item.unitPrice || '0'),
+        rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
         discount: 0,
-        gstRate: parseFloat(item.gstRate || '18'),
+        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '18'),
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -246,27 +254,33 @@ export default function InvoiceCreate() {
         total: 0,
       }];
 
-      setInvoiceData(prev => ({
-        ...prev,
-        reference: orderData.shopifyOrderNumber || '',
-        buyer: {
-          ...prev.buyer,
-          name: orderData.customerName || '',
-          email: orderData.customerEmail || '',
-          phone: orderData.customerPhone || '',
-          billingAddress: orderData.billingAddress || '',
-          shippingAddress: orderData.shippingAddress || '',
-          billingState: orderData.shippingState || '',
-          shippingState: orderData.shippingState || '',
-        },
-        placeOfSupply,
-        items: orderItems.map(item => recalculateItem(
-          item,
+      console.log('Order items mapped:', orderItems);
+
+      setInvoiceData(prev => {
+        const newData = {
+          ...prev,
+          reference: orderData.shopifyOrderNumber || '',
+          buyer: {
+            ...prev.buyer,
+            name: orderData.customerName || '',
+            email: orderData.customerEmail || '',
+            phone: orderData.customerPhone || '',
+            billingAddress: orderData.billingAddress || '',
+            shippingAddress: orderData.shippingAddress || '',
+            billingState: orderData.shippingState || '',
+            shippingState: orderData.shippingState || '',
+          },
           placeOfSupply,
-          orderData.shippingState || '',
-          prev.supplier.state
-        )),
-      }));
+          items: orderItems.map(item => recalculateItem(
+            item,
+            placeOfSupply,
+            orderData.shippingState || '',
+            prev.supplier.state
+          )),
+        };
+        console.log('New invoice data:', newData);
+        return newData;
+      });
     }
   }, [orderData]);
 
