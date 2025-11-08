@@ -684,7 +684,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .set({ hasInvoice: true, invoiceId: invoice.id })
         .where(eq(schema.orders.id, orderId));
 
-      await generateInvoicePDF(invoice.id);
+      try {
+        await generateInvoicePDF(invoice.id);
+      } catch (pdfError) {
+        console.error("Error generating PDF (invoice still created):", pdfError);
+      }
 
       await logAudit(req.user!.accountId, req.user!.userId, "create_from_order", "invoice", invoice.id, null, { orderId, invoiceId: invoice.id });
 
