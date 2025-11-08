@@ -111,6 +111,25 @@ The architecture supports planned integrations for:
 
 ### November 8, 2025
 
+**PDF Download and Automatic Generation**
+
+Fixed PDF download functionality and implemented automatic PDF generation:
+
+1. **GET Endpoint for PDF Downloads**
+   - Added GET `/api/invoices/:id/pdf` endpoint to serve actual PDF files
+   - Frontend can now download PDFs as blob files
+   - Automatically generates PDF on first download if not already created
+
+2. **Automatic PDF Generation**
+   - PDFs are now automatically generated when creating invoices from orders
+   - No manual step required to generate PDFs
+   - PDF files are stored in `attached_assets/invoices/` directory
+
+3. **File Serving**
+   - Proper Content-Type and Content-Disposition headers for downloads
+   - Stream-based file serving for efficient memory usage
+   - Filename includes invoice number for easy identification
+
 **CSV Import Compatibility Fix**
 
 Fixed CSV import to handle standard Shopify order exports:
