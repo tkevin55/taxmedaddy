@@ -53,6 +53,7 @@ type Order = {
   shippingStateCode?: string;
   total: string;
   subtotal: string;
+  discountTotal?: string;
   taxTotal: string;
   items?: Array<{
     name: string;
@@ -60,7 +61,6 @@ type Order = {
     unitPrice: string;
     hsnCode?: string;
     gstRate?: string;
-    discount?: string;
   }>;
 };
 
@@ -239,6 +239,7 @@ export default function InvoiceCreate() {
         total: 0,
       },
     ],
+    discount: 0,
     notes: '',
     terms: '',
     bankDetails: {
@@ -326,30 +327,22 @@ export default function InvoiceCreate() {
         ? `${orderData.shippingStateCode}-${orderData.shippingState}`
         : '';
 
-      const orderItems = orderData.items?.map((item, index) => {
-        const qty = typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1');
-        const rate = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0');
-        const discountAmount = typeof item.discount === 'string' ? parseFloat(item.discount || '0') : (item.discount || 0);
-        const lineTotal = rate * qty;
-        const discountPercent = lineTotal > 0 ? (discountAmount / lineTotal) * 100 : 0;
-        
-        return {
-          id: String(index + 1),
-          description: item.name || '',
-          details: '',
-          hsn: item.hsnCode || '',
-          quantity: qty,
-          unit: 'UNT',
-          rate: rate,
-          discount: discountPercent,
-          gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
-          taxableValue: 0,
-          cgst: 0,
-          sgst: 0,
-          igst: 0,
-          total: 0,
-        };
-      }) || [{
+      const orderItems = orderData.items?.map((item, index) => ({
+        id: String(index + 1),
+        description: item.name || '',
+        details: '',
+        hsn: item.hsnCode || '',
+        quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1'),
+        unit: 'UNT',
+        rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
+        discount: 0,
+        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
+        taxableValue: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        total: 0,
+      })) || [{
         id: '1',
         description: '',
         details: '',
@@ -369,9 +362,14 @@ export default function InvoiceCreate() {
       console.log('Order items mapped:', orderItems);
 
       setInvoiceData(prev => {
+        const orderDiscount = typeof orderData.discountTotal === 'string' 
+          ? parseFloat(orderData.discountTotal || '0')
+          : (orderData.discountTotal || 0);
+        
         const newData = {
           ...prev,
           reference: orderData.shopifyOrderNumber || '',
+          discount: orderDiscount,
           buyer: {
             ...prev.buyer,
             name: orderData.customerName || '',
@@ -397,7 +395,7 @@ export default function InvoiceCreate() {
   }, [orderData]);
 
   const calculateTotals = () => {
-    const totals = invoiceData.items.reduce(
+    const itemTotals = invoiceData.items.reduce(
       (acc, item) => ({
         taxableValue: acc.taxableValue + item.taxableValue,
         cgst: acc.cgst + item.cgst,
@@ -407,7 +405,42 @@ export default function InvoiceCreate() {
       }),
       { taxableValue: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
     );
-    return totals;
+
+    const subtotalBeforeDiscount = itemTotals.total;
+    const discount = invoiceData.discount || 0;
+    const totalAfterDiscount = Math.max(0, subtotalBeforeDiscount - discount);
+    
+    if (discount > 0 && subtotalBeforeDiscount > 0) {
+      if (totalAfterDiscount === 0) {
+        return {
+          subtotal: subtotalBeforeDiscount,
+          taxableValue: 0,
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+          total: 0,
+        };
+      }
+      
+      const discountRatio = totalAfterDiscount / subtotalBeforeDiscount;
+      
+      const taxableValueAfterDiscount = itemTotals.taxableValue * discountRatio;
+      const igstAfterDiscount = itemTotals.igst * discountRatio;
+      
+      return {
+        subtotal: subtotalBeforeDiscount,
+        taxableValue: taxableValueAfterDiscount,
+        cgst: 0,
+        sgst: 0,
+        igst: igstAfterDiscount,
+        total: totalAfterDiscount,
+      };
+    }
+    
+    return {
+      subtotal: subtotalBeforeDiscount,
+      ...itemTotals,
+    };
   };
 
   const totals = calculateTotals();

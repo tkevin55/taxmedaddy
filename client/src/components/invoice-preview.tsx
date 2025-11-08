@@ -33,6 +33,7 @@ interface InvoiceData {
     shippingPincode?: string;
   };
   placeOfSupply?: string;
+  discount?: number;
   items: Array<{
     description: string;
     details?: string;
@@ -49,6 +50,7 @@ interface InvoiceData {
     total: number;
   }>;
   totals: {
+    subtotal: number;
     taxableValue: number;
     cgst: number;
     sgst: number;
@@ -176,7 +178,6 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                 <th className="text-center p-2 font-medium border-r">HSN</th>
                 <th className="text-center p-2 font-medium border-r">Qty</th>
                 <th className="text-right p-2 font-medium border-r">Rate</th>
-                <th className="text-center p-2 font-medium border-r">Disc%</th>
                 <th className="text-right p-2 font-medium border-r">Taxable</th>
                 <th className="text-center p-2 font-medium border-r">GST%</th>
                 <th className="text-right p-2 font-medium border-r">IGST</th>
@@ -194,7 +195,6 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                     <td className="p-2 text-center font-mono border-r align-top">{item.hsn || '-'}</td>
                     <td className="p-2 text-center font-mono border-r align-top">{item.quantity.toFixed(2)}</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.rate.toFixed(2)}</td>
-                    <td className="p-2 text-center font-mono border-r align-top">{item.discount || 0}%</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.taxableValue.toFixed(2)}</td>
                     <td className="p-2 text-center font-mono border-r align-top">{item.gstRate}%</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.igst.toFixed(2)}</td>
@@ -203,7 +203,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                 ))
               ) : (
                 <tr className="border-t">
-                  <td colSpan={10} className="p-8 text-center text-muted-foreground italic">
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground italic">
                     No items added yet
                   </td>
                 </tr>
@@ -214,6 +214,16 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
 
         <div className="flex justify-end pb-4 border-b">
           <div className="w-80 space-y-1 text-[10px]">
+            <div className="flex justify-between">
+              <span className="font-semibold">Subtotal</span>
+              <span className="font-mono text-right">₹{data.totals.subtotal.toFixed(2)}</span>
+            </div>
+            {data.discount && data.discount > 0 ? (
+              <div className="flex justify-between">
+                <span>Discount</span>
+                <span className="font-mono text-right">-₹{data.discount.toFixed(2)}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between">
               <span className="font-semibold">Taxable Amount</span>
               <span className="font-mono text-right">₹{data.totals.taxableValue.toFixed(2)}</span>

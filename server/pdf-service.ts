@@ -326,7 +326,6 @@ function generateInvoiceHTML(invoice: any): string {
         <th class="text-center">HSN</th>
         <th class="text-center">Qty</th>
         <th class="text-right">Rate</th>
-        <th class="text-center">Disc%</th>
         <th class="text-right">Taxable</th>
         <th class="text-center">GST%</th>
         <th class="text-right">IGST</th>
@@ -341,7 +340,6 @@ function generateInvoiceHTML(invoice: any): string {
           <td class="text-center">${item.hsnCode || '-'}</td>
           <td class="text-center">${parseFloat(item.quantity || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.rate || '0').toFixed(2)}</td>
-          <td class="text-center">${parseFloat(item.discount || '0')}%</td>
           <td class="text-right">₹${parseFloat(item.taxableValue || '0').toFixed(2)}</td>
           <td class="text-center">${parseFloat(item.gstRate || '0')}%</td>
           <td class="text-right">₹${parseFloat(item.igstAmount || '0').toFixed(2)}</td>
@@ -353,6 +351,16 @@ function generateInvoiceHTML(invoice: any): string {
 
   <div class="totals-section">
     <table class="totals-table">
+      ${invoice.discountTotal && parseFloat(invoice.discountTotal) > 0 ? `
+        <tr>
+          <td><strong>Subtotal</strong></td>
+          <td class="text-right">₹${(parseFloat(invoice.grandTotal || '0') + parseFloat(invoice.discountTotal || '0')).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td>Discount</td>
+          <td class="text-right">-₹${parseFloat(invoice.discountTotal).toFixed(2)}</td>
+        </tr>
+      ` : ''}
       <tr>
         <td><strong>Taxable Amount</strong></td>
         <td class="text-right">₹${parseFloat(invoice.subtotal || '0').toFixed(2)}</td>

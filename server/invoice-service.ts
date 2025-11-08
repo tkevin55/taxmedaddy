@@ -81,7 +81,7 @@ export async function buildInvoiceFromOrder(
     };
   });
 
-  const totals = calculatedItems.reduce(
+  const itemTotals = calculatedItems.reduce(
     (acc, item) => ({
       subtotal: acc.subtotal + parseFloat(item.taxableValue),
       totalCgst: acc.totalCgst + parseFloat(item.cgstAmount),
@@ -101,6 +101,38 @@ export async function buildInvoiceFromOrder(
       totalQty: 0,
     }
   );
+
+  const orderDiscount = parseFloat(order.discountTotal || "0");
+  const subtotalBeforeDiscount = itemTotals.grandTotal;
+  const totalAfterDiscount = Math.max(0, subtotalBeforeDiscount - orderDiscount);
+  
+  let totals = itemTotals;
+  if (orderDiscount > 0 && subtotalBeforeDiscount > 0) {
+    if (totalAfterDiscount === 0) {
+      totals = {
+        ...itemTotals,
+        subtotal: 0,
+        totalIgst: 0,
+        totalCgst: 0,
+        totalSgst: 0,
+        grandTotal: 0,
+      };
+    } else {
+      const discountRatio = totalAfterDiscount / subtotalBeforeDiscount;
+      
+      const taxableValueAfterDiscount = itemTotals.subtotal * discountRatio;
+      const igstAfterDiscount = itemTotals.totalIgst * discountRatio;
+      
+      totals = {
+        ...itemTotals,
+        subtotal: taxableValueAfterDiscount,
+        totalIgst: igstAfterDiscount,
+        totalCgst: 0,
+        totalSgst: 0,
+        grandTotal: totalAfterDiscount,
+      };
+    }
+  }
 
   const defaultBank = await db.query.banks.findFirst({
     where: eq(schema.banks.entityId, entityId),
@@ -125,6 +157,7 @@ export async function buildInvoiceFromOrder(
         ? `${order.shippingStateCode || ""}-${order.shippingState}`
         : null,
       subtotal: String(totals.subtotal.toFixed(2)),
+      discountTotal: String(orderDiscount.toFixed(2)),
       totalCgst: String(totals.totalCgst.toFixed(2)),
       totalSgst: String(totals.totalSgst.toFixed(2)),
       totalIgst: String(totals.totalIgst.toFixed(2)),
