@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
+import { queryClient } from "./queryClient";
 
 interface User {
   id: number;
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    queryClient.clear();
     localStorage.setItem("auth_token", data.token);
     setToken(data.token);
     setUser(data.user);
@@ -86,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    queryClient.clear();
     localStorage.setItem("auth_token", data.token);
     setToken(data.token);
     setUser(data.user);
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    queryClient.clear();
     localStorage.removeItem("auth_token");
     setToken(null);
     setUser(null);
