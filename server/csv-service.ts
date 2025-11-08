@@ -75,18 +75,19 @@ export async function importProductsFromCSV(
 
   for (const row of rows) {
     try {
-      if (!row.Title || !row["Variant SKU"]) {
+      if (!row.Title || !row.Handle) {
         skipped++;
         continue;
       }
 
       const hsnCode = row["Variant Tax Code"] || "";
       const gstRate = hsnCode ? deriveGSTRateFromTaxCode(hsnCode) : "18.00";
+      const sku = row["Variant SKU"] || row.Handle;
 
       const productData = {
         accountId,
         name: row.Title,
-        sku: row["Variant SKU"],
+        sku: sku,
         description: row["Body (HTML)"] || "",
         defaultPrice: row["Variant Price"] || "0.00",
         hsnCode: hsnCode,
@@ -97,7 +98,7 @@ export async function importProductsFromCSV(
 
       const existing = await db.query.products.findFirst({
         where: and(
-          eq(schema.products.sku, productData.sku),
+          eq(schema.products.shopifyProductId, row.Handle),
           eq(schema.products.accountId, accountId)
         ),
       });
