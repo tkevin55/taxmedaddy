@@ -142,7 +142,7 @@ export async function importOrdersFromCSV(
     orderGroups.get(row.Name)!.push(row);
   }
 
-  for (const [orderName, orderRows] of orderGroups) {
+  for (const [orderName, orderRows] of Array.from(orderGroups.entries())) {
     try {
       const firstRow = orderRows[0];
       
@@ -216,10 +216,12 @@ export async function importOrdersFromCSV(
         firstRow["Billing Zip"] || firstRow["Shipping Zip"] || "",
       ].filter(Boolean).join(", ");
 
+      const orderDate = firstRow["Created at"] ? new Date(firstRow["Created at"]) : new Date();
+      
       const [order] = await db.insert(schema.orders).values({
         accountId,
         shopifyOrderNumber: orderName,
-        orderDate: firstRow["Created at"] || new Date().toISOString(),
+        orderDate,
         customerName: firstRow["Shipping Name"] || firstRow["Billing Name"] || "Unknown",
         customerEmail: firstRow.Email || "",
         customerPhone: firstRow.Phone || "",

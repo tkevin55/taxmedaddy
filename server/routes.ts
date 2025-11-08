@@ -14,9 +14,18 @@ import {
 } from "./auth";
 import { buildInvoiceFromOrder } from "./invoice-service";
 import { generateInvoicePDF } from "./pdf-service";
+import { 
+  importProductsFromCSV, 
+  importOrdersFromCSV,
+  generateProductsSampleCSV,
+  generateOrdersSampleCSV
+} from "./csv-service";
+import multer from "multer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
+  const upload = multer({ storage: multer.memoryStorage() });
+
   app.post("/api/auth/signup", async (req, res) => {
     try {
       const { accountName, name, email, password } = req.body;
@@ -911,6 +920,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error generating PDF:", error);
       res.status(500).json({ error: "Failed to generate PDF" });
     }
+  });
+
+  app.post("/api/products/import-csv", requireAuth, requireRole("admin", "staff"), upload.single("file"), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const result = await importProductsFromCSV(req.file.buffer, req.user!.accountId);
+
+      await logAudit(req.user!.accountId, req.user!.userId, "import_csv", "products", null, null, result);
+
+      res.json({
+        message: "Products import completed",
+        importedCount: result.imported,
+        updatedCount: result.updated,
+        skipped: result.skipped,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error importing products CSV:", error);
+      res.status(500).json({ error: "Failed to import products CSV" });
+    }
+  });
+
+  app.post("/api/orders/import-csv", requireAuth, requireRole("admin", "staff"), upload.single("file"), async (req: AuthRequest, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const result = await importOrdersFromCSV(req.file.buffer, req.user!.accountId);
+
+      await logAudit(req.user!.accountId, req.user!.userId, "import_csv", "orders", null, null, result);
+
+      res.json({
+        message: "Orders import completed",
+        importedCount: result.imported,
+        skipped: result.skipped,
+        duplicates: result.duplicates,
+        errors: result.errors,
+      });
+    } catch (error) {
+      console.error("Error importing orders CSV:", error);
+      res.status(500).json({ error: "Failed to import orders CSV" });
+    }
+  });
+
+  app.get("/api/products/sample-csv", (req, res) => {
+    const csv = generateProductsSampleCSV();
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=products_template.csv");
+    res.send(csv);
+  });
+
+  app.get("/api/orders/sample-csv", (req, res) => {
+    const csv = generateOrdersSampleCSV();
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=orders_template.csv");
+    res.send(csv);
   });
 
   const httpServer = createServer(app);
