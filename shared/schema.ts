@@ -54,6 +54,7 @@ export const entities = pgTable("entities", {
   phone: text("phone"),
   email: text("email"),
   website: text("website"),
+  logoUrl: text("logo_url"),
   invoicePrefix: text("invoice_prefix").default("INV"),
   currentInvoiceNumber: integer("current_invoice_number").default(0),
   bankDefaultId: integer("bank_default_id"),
