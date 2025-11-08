@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Save, Send, Download, ArrowLeft, Plus, Search, ChevronDown, X, Upload, Settings } from "lucide-react";
 import { InvoicePreview } from "@/components/invoice-preview";
 import { Button } from "@/components/ui/button";
@@ -23,7 +25,38 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+type Order = {
+  id: number;
+  shopifyOrderNumber: string;
+  orderDate: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  billingAddress?: string;
+  shippingAddress?: string;
+  shippingState?: string;
+  shippingStateCode?: string;
+  total: string;
+  subtotal: string;
+  taxTotal: string;
+  items?: Array<{
+    name: string;
+    quantity: string;
+    unitPrice: string;
+    hsnCode?: string;
+    gstRate?: string;
+  }>;
+};
+
 export default function InvoiceCreate() {
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const orderId = urlParams.get('orderId');
+
+  const { data: orderData } = useQuery<Order>({
+    queryKey: ["/api/orders", orderId],
+    enabled: !!orderId,
+  });
   const [showCustomHeaders, setShowCustomHeaders] = useState(false);
   const [showDescription, setShowDescription] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
@@ -174,6 +207,68 @@ export default function InvoiceCreate() {
       )),
     }));
   }, [invoiceData.placeOfSupply, invoiceData.buyer.billingState]);
+
+  useEffect(() => {
+    if (orderData) {
+      const placeOfSupply = orderData.shippingStateCode && orderData.shippingState
+        ? `${orderData.shippingStateCode}-${orderData.shippingState}`
+        : '';
+
+      const orderItems = orderData.items?.map((item, index) => ({
+        id: String(index + 1),
+        description: item.name || '',
+        details: '',
+        hsn: item.hsnCode || '',
+        quantity: parseFloat(item.quantity || '1'),
+        unit: 'UNT',
+        rate: parseFloat(item.unitPrice || '0'),
+        discount: 0,
+        gstRate: parseFloat(item.gstRate || '18'),
+        taxableValue: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        total: 0,
+      })) || [{
+        id: '1',
+        description: '',
+        details: '',
+        hsn: '',
+        quantity: 1,
+        unit: 'UNT',
+        rate: 0,
+        discount: 0,
+        gstRate: 18,
+        taxableValue: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        total: 0,
+      }];
+
+      setInvoiceData(prev => ({
+        ...prev,
+        reference: orderData.shopifyOrderNumber || '',
+        buyer: {
+          ...prev.buyer,
+          name: orderData.customerName || '',
+          email: orderData.customerEmail || '',
+          phone: orderData.customerPhone || '',
+          billingAddress: orderData.billingAddress || '',
+          shippingAddress: orderData.shippingAddress || '',
+          billingState: orderData.shippingState || '',
+          shippingState: orderData.shippingState || '',
+        },
+        placeOfSupply,
+        items: orderItems.map(item => recalculateItem(
+          item,
+          placeOfSupply,
+          orderData.shippingState || '',
+          prev.supplier.state
+        )),
+      }));
+    }
+  }, [orderData]);
 
   const calculateTotals = () => {
     const totals = invoiceData.items.reduce(

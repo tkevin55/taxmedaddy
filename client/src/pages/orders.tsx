@@ -234,7 +234,7 @@ export default function Orders() {
   };
 
   const handleGenerateInvoice = (orderId: string) => {
-    navigate(`/invoices/create/${orderId}`);
+    navigate(`/invoices/new?orderId=${orderId}`);
   };
 
   const handleBulkDelete = () => {
