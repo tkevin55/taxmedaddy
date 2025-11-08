@@ -176,6 +176,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                 <th className="text-center p-2 font-medium border-r">HSN</th>
                 <th className="text-center p-2 font-medium border-r">Qty</th>
                 <th className="text-right p-2 font-medium border-r">Rate</th>
+                <th className="text-center p-2 font-medium border-r">Disc%</th>
                 <th className="text-right p-2 font-medium border-r">Taxable</th>
                 <th className="text-center p-2 font-medium border-r">GST%</th>
                 <th className="text-right p-2 font-medium border-r">IGST</th>
@@ -193,6 +194,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                     <td className="p-2 text-center font-mono border-r align-top">{item.hsn || '-'}</td>
                     <td className="p-2 text-center font-mono border-r align-top">{item.quantity.toFixed(2)}</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.rate.toFixed(2)}</td>
+                    <td className="p-2 text-center font-mono border-r align-top">{item.discount || 0}%</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.taxableValue.toFixed(2)}</td>
                     <td className="p-2 text-center font-mono border-r align-top">{item.gstRate}%</td>
                     <td className="p-2 text-right font-mono border-r align-top">₹{item.igst.toFixed(2)}</td>
@@ -201,7 +203,7 @@ export function InvoicePreview({ data }: InvoicePreviewProps) {
                 ))
               ) : (
                 <tr className="border-t">
-                  <td colSpan={9} className="p-8 text-center text-muted-foreground italic">
+                  <td colSpan={10} className="p-8 text-center text-muted-foreground italic">
                     No items added yet
                   </td>
                 </tr>

@@ -60,6 +60,7 @@ type Order = {
     unitPrice: string;
     hsnCode?: string;
     gstRate?: string;
+    discount?: string;
   }>;
 };
 
@@ -325,22 +326,30 @@ export default function InvoiceCreate() {
         ? `${orderData.shippingStateCode}-${orderData.shippingState}`
         : '';
 
-      const orderItems = orderData.items?.map((item, index) => ({
-        id: String(index + 1),
-        description: item.name || '',
-        details: '',
-        hsn: item.hsnCode || '',
-        quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1'),
-        unit: 'UNT',
-        rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
-        discount: 0,
-        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
-        taxableValue: 0,
-        cgst: 0,
-        sgst: 0,
-        igst: 0,
-        total: 0,
-      })) || [{
+      const orderItems = orderData.items?.map((item, index) => {
+        const qty = typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1');
+        const rate = typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0');
+        const discountAmount = typeof item.discount === 'string' ? parseFloat(item.discount || '0') : (item.discount || 0);
+        const lineTotal = rate * qty;
+        const discountPercent = lineTotal > 0 ? (discountAmount / lineTotal) * 100 : 0;
+        
+        return {
+          id: String(index + 1),
+          description: item.name || '',
+          details: '',
+          hsn: item.hsnCode || '',
+          quantity: qty,
+          unit: 'UNT',
+          rate: rate,
+          discount: discountPercent,
+          gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
+          taxableValue: 0,
+          cgst: 0,
+          sgst: 0,
+          igst: 0,
+          total: 0,
+        };
+      }) || [{
         id: '1',
         description: '',
         details: '',

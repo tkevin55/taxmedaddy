@@ -326,6 +326,7 @@ function generateInvoiceHTML(invoice: any): string {
         <th class="text-center">HSN</th>
         <th class="text-center">Qty</th>
         <th class="text-right">Rate</th>
+        <th class="text-center">Disc%</th>
         <th class="text-right">Taxable</th>
         <th class="text-center">GST%</th>
         <th class="text-right">IGST</th>
@@ -340,6 +341,7 @@ function generateInvoiceHTML(invoice: any): string {
           <td class="text-center">${item.hsnCode || '-'}</td>
           <td class="text-center">${parseFloat(item.quantity || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.rate || '0').toFixed(2)}</td>
+          <td class="text-center">${parseFloat(item.discount || '0')}%</td>
           <td class="text-right">₹${parseFloat(item.taxableValue || '0').toFixed(2)}</td>
           <td class="text-center">${parseFloat(item.gstRate || '0')}%</td>
           <td class="text-right">₹${parseFloat(item.igstAmount || '0').toFixed(2)}</td>
