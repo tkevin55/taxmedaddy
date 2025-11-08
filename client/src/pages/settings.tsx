@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Building2, FileText, Link as LinkIcon, Users, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +18,129 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+
+type Entity = {
+  id: number;
+  legalName: string;
+  displayName: string;
+  gstin?: string;
+  pan?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  stateCode?: string;
+  pincode?: string;
+  phone?: string;
+  email?: string;
+  invoicePrefix?: string;
+};
+
+const entityFormSchema = z.object({
+  legalName: z.string().min(1, "Legal name is required"),
+  displayName: z.string().min(1, "Display name is required"),
+  gstin: z.string().optional(),
+  pan: z.string().optional(),
+  addressLine1: z.string().optional(),
+  addressLine2: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  stateCode: z.string().optional(),
+  pincode: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  invoicePrefix: z.string().optional(),
+});
+
+type EntityFormValues = z.infer<typeof entityFormSchema>;
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("business");
+  const { toast } = useToast();
+
+  const { data: entities, isLoading: entitiesLoading } = useQuery<Entity[]>({
+    queryKey: ["/api/entities"],
+  });
+
+  const entity = entities?.[0];
+
+  const form = useForm<EntityFormValues>({
+    resolver: zodResolver(entityFormSchema),
+    defaultValues: {
+      legalName: entity?.legalName || "",
+      displayName: entity?.displayName || "",
+      gstin: entity?.gstin || "",
+      pan: entity?.pan || "",
+      addressLine1: entity?.addressLine1 || "",
+      addressLine2: entity?.addressLine2 || "",
+      city: entity?.city || "",
+      state: entity?.state || "",
+      stateCode: entity?.stateCode || "",
+      pincode: entity?.pincode || "",
+      phone: entity?.phone || "",
+      email: entity?.email || "",
+      invoicePrefix: entity?.invoicePrefix || "INV",
+    },
+  });
+
+  const saveEntityMutation = useMutation({
+    mutationFn: async (data: EntityFormValues) => {
+      if (entity?.id) {
+        return apiRequest("PUT", `/api/entities/${entity.id}`, data);
+      } else {
+        return apiRequest("POST", "/api/entities", data);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/entities"] });
+      toast({
+        title: "Success",
+        description: "Business profile saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save business profile",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmitEntity = (data: EntityFormValues) => {
+    saveEntityMutation.mutate(data);
+  };
+
+  // Reset form when entity data loads
+  useEffect(() => {
+    if (entity) {
+      form.reset({
+        legalName: entity.legalName || "",
+        displayName: entity.displayName || "",
+        gstin: entity.gstin || "",
+        pan: entity.pan || "",
+        addressLine1: entity.addressLine1 || "",
+        addressLine2: entity.addressLine2 || "",
+        city: entity.city || "",
+        state: entity.state || "",
+        stateCode: entity.stateCode || "",
+        pincode: entity.pincode || "",
+        phone: entity.phone || "",
+        email: entity.email || "",
+        invoicePrefix: entity.invoicePrefix || "INV",
+      });
+    }
+  }, [entity, form]);
 
   return (
     <div className="space-y-6">
@@ -55,63 +179,153 @@ export default function Settings() {
               <CardTitle>Business Profile</CardTitle>
               <CardDescription>Your company information for invoices</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="legal-name">Legal Name</Label>
-                  <Input id="legal-name" placeholder="My Company Pvt Ltd" data-testid="input-legal-name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="trade-name">Trade Name</Label>
-                  <Input id="trade-name" placeholder="My Brand" data-testid="input-trade-name" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="gstin">GSTIN</Label>
-                  <Input
-                    id="gstin"
-                    placeholder="29ABCDE1234F1Z5"
-                    className="font-mono"
-                    data-testid="input-gstin"
+            <CardContent>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitEntity)} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="legalName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Legal Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="My Company Pvt Ltd" data-testid="input-legal-name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="displayName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Display Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="My Brand" data-testid="input-display-name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="gstin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>GSTIN</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="29ABCDE1234F1Z5"
+                              className="font-mono"
+                              data-testid="input-gstin"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="pan"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>PAN</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="ABCDE1234F"
+                              className="font-mono"
+                              data-testid="input-pan"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="addressLine1"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address Line 1</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Building, Street" data-testid="input-address-line1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pan">PAN</Label>
-                  <Input
-                    id="pan"
-                    placeholder="ABCDE1234F"
-                    className="font-mono"
-                    data-testid="input-pan"
+                  <FormField
+                    control={form.control}
+                    name="addressLine2"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address Line 2</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Area, Landmark" data-testid="input-address-line2" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea id="address" rows={3} data-testid="input-address" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="state">State</Label>
-                  <Select>
-                    <SelectTrigger id="state" data-testid="select-state">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="karnataka">Karnataka (29)</SelectItem>
-                      <SelectItem value="maharashtra">Maharashtra (27)</SelectItem>
-                      <SelectItem value="tamil-nadu">Tamil Nadu (33)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input id="pincode" placeholder="560001" data-testid="input-pincode" />
-                </div>
-              </div>
-              <div className="pt-4">
-                <Button data-testid="button-save-business">Save Changes</Button>
-              </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="city"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Bangalore" data-testid="input-city" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="state"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Karnataka" data-testid="input-state" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="pincode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Pincode</FormLabel>
+                          <FormControl>
+                            <Input placeholder="560001" data-testid="input-pincode" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="pt-4">
+                    <Button 
+                      type="submit" 
+                      data-testid="button-save-business"
+                      disabled={saveEntityMutation.isPending}
+                    >
+                      {saveEntityMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
             </CardContent>
           </Card>
 
