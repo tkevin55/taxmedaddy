@@ -1,0 +1,187 @@
+Go with Option A: Full Backend Implementation, wired to my existing frontend.
+
+Tech Stack
+
+Backend: Node.js + Express
+
+DB: PostgreSQL (use Prisma or knex)
+
+Auth: JWT-based (access + refresh)
+
+PDF: HTML → PDF on server (puppeteer / pdf-lib)
+
+I already have a React/Tailwind frontend; just expose REST APIs and sample integration notes.
+
+1. Database Schema (create all tables now)
+
+Implement these tables/relations (multi-tenant, all rows scoped by account_id):
+
+accounts: id, name, created_at
+
+users: id, account_id, name, email (unique per account), password_hash, role (admin|staff|viewer), is_active, created_at
+
+entities: id, account_id, display_name, legal_name, gstin, pan, address_line1, address_line2, city, state, state_code, pincode, phone, email, website, invoice_prefix, current_invoice_number, bank_default_id, signature_default_id, created_at
+
+banks: id, account_id, entity_id (nullable), label, bank_name, account_number, ifsc, branch, upi_id, is_default, created_at
+
+signatures: id, account_id, entity_id (nullable), label, image_url, created_at
+
+products: id, account_id, shopify_product_id (nullable), name, sku, description, default_price, hsn_code, gst_rate, created_at
+
+orders: id, account_id, shopify_order_id (nullable), shopify_order_number (nullable), entity_id (nullable), order_date, customer_name, customer_email, customer_phone, billing_address, shipping_address, shipping_state, shipping_state_code, currency, subtotal, discount_total, shipping_total, tax_total, total, payment_status, has_invoice (bool), invoice_id (nullable), raw_json (jsonb), created_at
+
+order_items: id, order_id, product_id (nullable), name, sku, quantity, unit_price, discount, hsn_code, gst_rate, created_at
+
+invoices: id, account_id, entity_id, order_id (nullable), invoice_number, invoice_date, due_date, reference, type (regular|bill_of_supply|export|credit_note), buyer_name, buyer_company, buyer_email, buyer_phone, billing_address, shipping_address, buyer_gstin, place_of_supply, vehicle_no, po_number, challan_no, delivery_date, sales_person, dispatch_number, is_reverse_charge (bool), notes, terms, subtotal, discount_total, total_cgst, total_sgst, total_igst, total_cess, round_off, grand_total, total_items, total_qty, bank_id (nullable), signature_id (nullable), payment_status (unpaid|partial|paid), is_draft (bool), pdf_url (nullable), created_by, created_at
+
+invoice_items: id, invoice_id, product_id (nullable), description, hsn_code, quantity, unit, rate, price_includes_tax (bool), discount_percent, taxable_value, gst_rate, cgst_amount, sgst_amount, igst_amount, cess_amount, line_total, created_at
+
+payments: id, invoice_id, amount, mode, notes, utr_or_ref, created_at
+
+audit_logs: id, account_id, user_id, action, target_type, target_id, before_json, after_json, created_at
+
+Enforce FK constraints and cascading where appropriate.
+
+2. Auth & Multi-Tenancy
+
+Implement:
+
+POST /auth/signup → create account + admin user.
+
+POST /auth/login → returns JWTs.
+
+Middleware:
+
+Validate JWT
+
+Attach user + account_id to request
+
+All queries filtered by account_id.
+
+Role guard:
+
+admin: all CRUD
+
+staff: invoices, orders, products, banks, signatures
+
+viewer: read-only
+
+3. Core CRUD APIs
+
+Build these endpoints now (JSON):
+
+Entities:
+
+GET /entities
+
+POST /entities
+
+PUT /entities/:id
+
+Banks:
+
+GET /banks
+
+POST /banks
+
+PUT /banks/:id
+
+DELETE /banks/:id
+
+Signatures:
+
+GET /signatures
+
+POST /signatures (accept image upload URL or base64)
+
+PUT /signatures/:id
+
+DELETE /signatures/:id
+
+Products:
+
+GET /products
+
+POST /products
+
+PUT /products/:id
+
+Orders:
+
+GET /orders
+
+POST /orders/import (CSV or Shopify payload)
+
+Invoices:
+
+GET /invoices
+
+GET /invoices/:id
+
+POST /invoices (create/update draft or final)
+
+POST /orders/:id/create-invoice → create draft from order with prefilled data & GST logic
+
+POST /invoices/:id/finalize → assign invoice_number, lock totals, trigger PDF
+
+Payments:
+
+POST /invoices/:id/payments
+
+GET /invoices/:id/payments
+
+Each write endpoint must validate ownership by account_id.
+
+4. Shopify Import (MVP)
+
+Implement:
+
+Config model in code (env vars) or a simple shopify_connections table.
+
+POST /shopify/products/import:
+
+Fetch via Admin API OR accept CSV:
+
+Upsert into products.
+
+POST /shopify/orders/import:
+
+Same: pull orders or accept CSV
+
+Create orders + order_items.
+
+Later I’ll plug in real API keys; just keep helper functions clean.
+
+5. Invoice Logic & PDF
+
+Implement shared service functions:
+
+buildInvoiceFromOrder(order, items, entity) (CGST/SGST vs IGST, HSN, GST calc).
+
+Respect price_includes_tax when present.
+
+POST /invoices/:id/pdf:
+
+Render HTML using my existing Swipe-style layout (header, addresses, line-items with HSN & tax, totals, bank, signature).
+
+Convert HTML→PDF.
+
+Save to storage (or local for now) and update pdf_url.
+
+Return pdf_url so frontend button can open/download/print.
+
+6. Frontend Integration Notes
+
+Existing UI will:
+
+Call /orders to list imported orders.
+
+On “Create Invoice” from order:
+
+Hit /orders/:id/create-invoice, then open returned invoice in editor.
+
+Call /banks and /signatures for dropdowns & CRUD.
+
+Call /invoices for save/finalize.
+
+Please implement all above backend pieces now so my current React UI becomes fully functional and data-persistent. No demo data only; make it production-ready in structure.
