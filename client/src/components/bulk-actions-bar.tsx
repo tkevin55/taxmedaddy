@@ -1,4 +1,4 @@
-import { FileText, Download, Send, X } from "lucide-react";
+import { FileText, Download, Send, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -6,6 +6,7 @@ interface BulkActionsBarProps {
   selectedCount: number;
   onClose: () => void;
   onGenerateInvoices?: () => void;
+  onDelete?: () => void;
   onExport?: () => void;
   onSend?: () => void;
 }
@@ -14,6 +15,7 @@ export function BulkActionsBar({
   selectedCount,
   onClose,
   onGenerateInvoices,
+  onDelete,
   onExport,
   onSend,
 }: BulkActionsBarProps) {
@@ -35,6 +37,12 @@ export function BulkActionsBar({
               <Button size="sm" onClick={onGenerateInvoices} data-testid="button-bulk-generate">
                 <FileText className="w-4 h-4 mr-2" />
                 Generate Invoices
+              </Button>
+            )}
+            {onDelete && (
+              <Button size="sm" variant="destructive" onClick={onDelete} data-testid="button-bulk-delete">
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
               </Button>
             )}
             {onExport && (
