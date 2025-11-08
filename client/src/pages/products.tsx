@@ -439,6 +439,7 @@ export default function Products() {
                 />
               </TableHead>
               <TableHead className="w-[300px]">Item</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead className="text-right">Selling Price (Excl.)</TableHead>
               <TableHead className="text-right">Purchase Price</TableHead>
               <TableHead className="text-right w-[80px]">Actions</TableHead>
@@ -458,6 +459,7 @@ export default function Products() {
                       </div>
                     </div>
                   </TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -485,14 +487,22 @@ export default function Products() {
                         <div className="font-medium" data-testid={`text-product-name-${product.id}`}>
                           {product.name}
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {product.category && <span>{product.category}</span>}
-                          {product.sku && (
-                            <span className="ml-2">SKU: {product.sku}</span>
-                          )}
-                        </div>
+                        {product.sku && (
+                          <div className="text-xs text-muted-foreground">
+                            SKU: {product.sku}
+                          </div>
+                        )}
                       </div>
                     </div>
+                  </TableCell>
+                  <TableCell data-testid={`text-product-type-${product.id}`}>
+                    {product.category ? (
+                      <Badge variant="outline" className="font-normal">
+                        {product.category}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono" data-testid={`text-selling-price-${product.id}`}>
                     {product.defaultPrice ? `₹ ${product.defaultPrice}` : "₹ 0.00"}
@@ -534,7 +544,7 @@ export default function Products() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                   No products found. Click "New Item" to add your first product.
                 </TableCell>
               </TableRow>
