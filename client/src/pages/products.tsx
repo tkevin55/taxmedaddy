@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X } from "lucide-react";
+import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X, Filter } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
@@ -95,7 +100,8 @@ const UNITS = ["pcs", "kg", "gm", "ltr", "ml", "box", "set", "pair"];
 
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
@@ -346,6 +352,18 @@ export default function Products() {
     }
   };
 
+  const handleToggleTypeFilter = (type: string) => {
+    setTypeFilter(prev => 
+      prev.includes(type) 
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+
+  const handleResetTypeFilter = () => {
+    setTypeFilter([]);
+  };
+
   const filteredProducts = products?.filter((product) => {
     const matchesSearch = 
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -353,8 +371,8 @@ export default function Products() {
       product.category?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesType = 
-      typeFilter === "all" || 
-      product.category?.toLowerCase() === typeFilter.toLowerCase();
+      typeFilter.length === 0 || 
+      (product.category && typeFilter.includes(product.category.toLowerCase()));
     
     return matchesSearch && matchesType;
   });
@@ -424,52 +442,15 @@ export default function Products() {
         </div>
       )}
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={typeFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("all")}
-            data-testid="filter-type-all"
-          >
-            All
-          </Button>
-          <Button
-            variant={typeFilter === "matchbox" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("matchbox")}
-            data-testid="filter-type-matchbox"
-          >
-            Matchbox
-          </Button>
-          <Button
-            variant={typeFilter === "tshirt" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("tshirt")}
-            data-testid="filter-type-tshirt"
-          >
-            T-Shirt
-          </Button>
-          <Button
-            variant={typeFilter === "postcard" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTypeFilter("postcard")}
-            data-testid="filter-type-postcard"
-          >
-            Postcard
-          </Button>
-        </div>
-
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search products, category, description, barcode..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            data-testid="input-search-products"
-          />
-        </div>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search products, category, description, barcode..."
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          data-testid="input-search-products"
+        />
       </div>
 
       <div className="border rounded-lg">
@@ -484,7 +465,90 @@ export default function Products() {
                 />
               </TableHead>
               <TableHead className="w-[300px]">Item</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>
+                <div className="flex items-center gap-2">
+                  <span>Type</span>
+                  <Popover open={typeFilterOpen} onOpenChange={setTypeFilterOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-6 h-6"
+                        data-testid="button-type-filter"
+                      >
+                        <Filter className="w-3.5 h-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-3" align="start">
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="filter-matchbox"
+                              checked={typeFilter.includes("matchbox")}
+                              onCheckedChange={() => handleToggleTypeFilter("matchbox")}
+                              data-testid="checkbox-filter-matchbox"
+                            />
+                            <label
+                              htmlFor="filter-matchbox"
+                              className="text-sm cursor-pointer flex-1"
+                            >
+                              Matchbox
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="filter-tshirt"
+                              checked={typeFilter.includes("tshirt")}
+                              onCheckedChange={() => handleToggleTypeFilter("tshirt")}
+                              data-testid="checkbox-filter-tshirt"
+                            />
+                            <label
+                              htmlFor="filter-tshirt"
+                              className="text-sm cursor-pointer flex-1"
+                            >
+                              T-Shirt
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="filter-postcard"
+                              checked={typeFilter.includes("postcard")}
+                              onCheckedChange={() => handleToggleTypeFilter("postcard")}
+                              data-testid="checkbox-filter-postcard"
+                            />
+                            <label
+                              htmlFor="filter-postcard"
+                              className="text-sm cursor-pointer flex-1"
+                            >
+                              Postcard
+                            </label>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-2 border-t">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleResetTypeFilter}
+                            className="h-7 text-xs"
+                            data-testid="button-reset-type-filter"
+                          >
+                            Reset
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => setTypeFilterOpen(false)}
+                            className="h-7 text-xs"
+                            data-testid="button-apply-type-filter"
+                          >
+                            OK
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </TableHead>
               <TableHead className="text-right">Selling Price (Excl.)</TableHead>
               <TableHead className="text-right">Purchase Price</TableHead>
               <TableHead className="text-right w-[80px]">Actions</TableHead>
