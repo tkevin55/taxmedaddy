@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Save, Send, Download, ArrowLeft } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, Send, Download, ArrowLeft, Plus, Search, ChevronDown, X, Upload, Settings } from "lucide-react";
 import { InvoicePreview } from "@/components/invoice-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,47 +13,217 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export default function InvoiceCreate() {
+  const [showCustomHeaders, setShowCustomHeaders] = useState(false);
+  const [showDescription, setShowDescription] = useState(true);
+  const [showNotes, setShowNotes] = useState(false);
+  const [markAsPaid, setMarkAsPaid] = useState(false);
+  const [reverseCharge, setReverseCharge] = useState(false);
+  const [createEWaybill, setCreateEWaybill] = useState(false);
+  const [createEInvoice, setCreateEInvoice] = useState(false);
+  const [showTDS, setShowTDS] = useState(false);
+  const [showTCS, setShowTCS] = useState(false);
+
   const [invoiceData, setInvoiceData] = useState({
-    invoiceNumber: 'MAA/24-25/001',
-    invoiceDate: '15-Jan-2024',
-    dueDate: '30-Jan-2024',
+    invoiceNumber: 'INV-322',
+    invoiceDate: '2024-01-15',
+    dueDate: '2024-01-30',
+    reference: '',
     supplier: {
-      name: 'My Company Pvt Ltd',
-      gstin: '29ABCDE1234F1Z5',
-      address: '123, MG Road, Bangalore',
-      state: 'Karnataka (29)',
+      name: 'VISUALVORTEX DESIGNS LLP',
+      gstin: '20AAWFV5749D1ZV',
+      address: '2160/A/2, Bank Colony, Bariatu, Ranchi',
+      city: 'Ranchi',
+      state: 'JHARKHAND',
+      stateCode: '20',
+      pincode: '834009',
+      mobile: '+91 8197155411',
+      email: 'contact@maachis.art',
+      website: 'www.maachis.art',
     },
     buyer: {
-      name: 'ABC Enterprises',
-      gstin: '29XYZAB5678C2D9',
-      address: '456, Brigade Road, Bangalore',
-      state: 'Karnataka (29)',
+      name: '',
+      phone: '',
+      email: '',
+      gstin: '',
+      billingAddress: '',
+      billingCity: '',
+      billingState: '',
+      billingPincode: '',
+      shippingAddress: '',
+      shippingCity: '',
+      shippingState: '',
+      shippingPincode: '',
+    },
+    placeOfSupply: '',
+    customHeaders: {
+      vehicleNo: '',
+      poNumber: '',
+      challanNo: '',
+      deliveryDate: '',
+      salesPerson: '',
+      dispatchNumber: '',
     },
     items: [
       {
-        description: 'Premium Cotton T-Shirt',
-        hsn: '6109',
-        quantity: 10,
-        rate: 500,
-        taxableValue: 5000,
+        id: '1',
+        description: '',
+        details: '',
+        hsn: '',
+        quantity: 1,
+        unit: 'UNT',
+        rate: 0,
+        discount: 0,
         gstRate: 18,
-        cgst: 450,
-        sgst: 450,
+        taxableValue: 0,
+        cgst: 0,
+        sgst: 0,
         igst: 0,
-        total: 5900,
+        total: 0,
       },
     ],
-    totals: {
-      taxableValue: 5000,
-      cgst: 450,
-      sgst: 450,
-      igst: 0,
-      total: 5900,
+    notes: '',
+    terms: '',
+    bankDetails: {
+      bank: 'HDFC Bank',
+      accountNumber: '50200080109371',
+      ifsc: 'HDFC0000150',
+      branch: 'main road',
+      upi: '',
     },
   });
+
+  const updateInvoice = (path: string, value: any) => {
+    setInvoiceData(prev => {
+      const keys = path.split('.');
+      const newData = { ...prev };
+      let current: any = newData;
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        current[keys[i]] = { ...current[keys[i]] };
+        current = current[keys[i]];
+      }
+      
+      current[keys[keys.length - 1]] = value;
+      return newData;
+    });
+  };
+
+  const recalculateItem = (item: any, placeOfSupply: string, billingState: string, supplierState: string) => {
+    const rate = parseFloat(String(item.rate)) || 0;
+    const quantity = parseFloat(String(item.quantity)) || 0;
+    const discount = parseFloat(String(item.discount)) || 0;
+    const gstRate = parseFloat(String(item.gstRate)) || 0;
+    
+    const subtotal = rate * quantity;
+    const discountAmount = (subtotal * discount) / 100;
+    const taxableValue = subtotal - discountAmount;
+    
+    const supplyState = placeOfSupply 
+      ? (placeOfSupply.split('-')[1]?.toUpperCase().trim() || '')
+      : (billingState?.toUpperCase().trim() || '');
+    const isSameState = supplyState && supplyState === supplierState.toUpperCase().trim();
+    const taxAmount = (taxableValue * gstRate) / 100;
+    
+    return {
+      ...item,
+      rate,
+      quantity,
+      discount,
+      gstRate,
+      taxableValue,
+      cgst: isSameState ? taxAmount / 2 : 0,
+      sgst: isSameState ? taxAmount / 2 : 0,
+      igst: isSameState ? 0 : taxAmount,
+      total: taxableValue + taxAmount,
+    };
+  };
+
+  const updateItem = (index: number, field: string, value: any) => {
+    setInvoiceData(prev => {
+      const newItems = [...prev.items];
+      newItems[index] = { ...newItems[index], [field]: value };
+      newItems[index] = recalculateItem(
+        newItems[index],
+        prev.placeOfSupply,
+        prev.buyer.billingState,
+        prev.supplier.state
+      );
+      return { ...prev, items: newItems };
+    });
+  };
+
+  useEffect(() => {
+    setInvoiceData(prev => ({
+      ...prev,
+      items: prev.items.map(item => recalculateItem(
+        item,
+        prev.placeOfSupply,
+        prev.buyer.billingState,
+        prev.supplier.state
+      )),
+    }));
+  }, [invoiceData.placeOfSupply, invoiceData.buyer.billingState]);
+
+  const calculateTotals = () => {
+    const totals = invoiceData.items.reduce(
+      (acc, item) => ({
+        taxableValue: acc.taxableValue + item.taxableValue,
+        cgst: acc.cgst + item.cgst,
+        sgst: acc.sgst + item.sgst,
+        igst: acc.igst + item.igst,
+        total: acc.total + item.total,
+      }),
+      { taxableValue: 0, cgst: 0, sgst: 0, igst: 0, total: 0 }
+    );
+    return totals;
+  };
+
+  const totals = calculateTotals();
+
+  const addLineItem = () => {
+    const newItem = {
+      id: String(invoiceData.items.length + 1),
+      description: '',
+      details: '',
+      hsn: '',
+      quantity: 1,
+      unit: 'UNT',
+      rate: 0,
+      discount: 0,
+      gstRate: 18,
+      taxableValue: 0,
+      cgst: 0,
+      sgst: 0,
+      igst: 0,
+      total: 0,
+    };
+    setInvoiceData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+  };
+
+  const removeLineItem = (id: string) => {
+    if (invoiceData.items.length > 1) {
+      setInvoiceData(prev => ({
+        ...prev,
+        items: prev.items.filter(item => item.id !== id),
+      }));
+    }
+  };
+
+  const previewData = {
+    ...invoiceData,
+    totals,
+  };
 
   return (
     <div className="space-y-6">
@@ -65,113 +235,302 @@ export default function InvoiceCreate() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold">Create Invoice</h1>
-            <p className="text-muted-foreground text-sm mt-1">Generate a new GST-compliant invoice</p>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold">Create Invoice</h1>
+              <Input
+                value={invoiceData.invoiceNumber}
+                onChange={(e) => updateInvoice('invoiceNumber', e.target.value)}
+                className="w-32 font-mono h-8"
+                data-testid="input-invoice-number-header"
+              />
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="w-8 h-8" data-testid="button-custom-header">
+            <Settings className="w-4 h-4" />
+          </Button>
           <Button variant="outline" size="sm" data-testid="button-save-draft">
-            <Save className="w-4 h-4 mr-2" />
-            Save Draft
+            Save as Draft
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-download">
-            <Download className="w-4 h-4 mr-2" />
-            Download PDF
+          <Button variant="outline" size="sm" data-testid="button-save-print">
+            Save and Print
           </Button>
-          <Button size="sm" data-testid="button-send">
-            <Send className="w-4 h-4 mr-2" />
-            Send Invoice
+          <Button size="sm" data-testid="button-save">
+            Save
           </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-3 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invoice Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice-type" className="text-xs">Invoice Type</Label>
-                  <Select defaultValue="tax_invoice">
-                    <SelectTrigger id="invoice-type" data-testid="select-invoice-type">
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="space-y-2 flex-1">
+                  <Label className="text-xs">Type</Label>
+                  <Select defaultValue="regular">
+                    <SelectTrigger data-testid="select-invoice-type">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="tax_invoice">Tax Invoice</SelectItem>
+                      <SelectItem value="regular">Regular</SelectItem>
+                      <SelectItem value="export">Export</SelectItem>
                       <SelectItem value="bill_of_supply">Bill of Supply</SelectItem>
-                      <SelectItem value="export_invoice">Export Invoice</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="invoice-number" className="text-xs">Invoice Number</Label>
-                  <Input
-                    id="invoice-number"
-                    value={invoiceData.invoiceNumber}
-                    className="font-mono"
-                    data-testid="input-invoice-number"
-                  />
+                <div className="space-y-2 flex-1">
+                  <Label className="text-xs">Dispatch From</Label>
+                  <Select>
+                    <SelectTrigger data-testid="select-dispatch-from">
+                      <SelectValue placeholder="Select address" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="main">Main Office</SelectItem>
+                      <SelectItem value="warehouse">Warehouse</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="invoice-date" className="text-xs">Invoice Date</Label>
-                  <Input id="invoice-date" type="date" data-testid="input-invoice-date" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="due-date" className="text-xs">Due Date</Label>
-                  <Input id="due-date" type="date" data-testid="input-due-date" />
-                </div>
-              </div>
+
+              <Collapsible open={showCustomHeaders} onOpenChange={setShowCustomHeaders}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-toggle-custom-headers">
+                    <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showCustomHeaders ? 'rotate-180' : ''}`} />
+                    Custom Headers
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Vehicle No</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={invoiceData.customHeaders.vehicleNo}
+                        onChange={(e) => updateInvoice('customHeaders.vehicleNo', e.target.value)}
+                        data-testid="input-vehicle-no"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">PO Number</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={invoiceData.customHeaders.poNumber}
+                        onChange={(e) => updateInvoice('customHeaders.poNumber', e.target.value)}
+                        data-testid="input-po-number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Challan No</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={invoiceData.customHeaders.challanNo}
+                        onChange={(e) => updateInvoice('customHeaders.challanNo', e.target.value)}
+                        data-testid="input-challan-no"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Delivery Date</Label>
+                      <Input
+                        type="date"
+                        value={invoiceData.customHeaders.deliveryDate}
+                        onChange={(e) => updateInvoice('customHeaders.deliveryDate', e.target.value)}
+                        data-testid="input-delivery-date"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Sales Person</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={invoiceData.customHeaders.salesPerson}
+                        onChange={(e) => updateInvoice('customHeaders.salesPerson', e.target.value)}
+                        data-testid="input-sales-person"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Dispatch Number</Label>
+                      <Input
+                        placeholder="Optional"
+                        value={invoiceData.customHeaders.dispatchNumber}
+                        onChange={(e) => updateInvoice('customHeaders.dispatchNumber', e.target.value)}
+                        data-testid="input-dispatch-number"
+                      />
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Buyer Details</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">Customer details</CardTitle>
+              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-customer">
+                + Add new Customer?
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="buyer-name" className="text-xs">Business Name</Label>
-                <Input
-                  id="buyer-name"
-                  value={invoiceData.buyer.name}
-                  data-testid="input-buyer-name"
-                />
+                <Label className="text-xs">Select Customer</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search your Customer, Company Name, GSTIN, tags..."
+                    className="pl-9"
+                    data-testid="input-customer-search"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label className="text-xs">Customer Name</Label>
+                  <Input
+                    value={invoiceData.buyer.name}
+                    onChange={(e) => updateInvoice('buyer.name', e.target.value)}
+                    data-testid="input-customer-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Phone</Label>
+                  <Input
+                    value={invoiceData.buyer.phone}
+                    onChange={(e) => updateInvoice('buyer.phone', e.target.value)}
+                    data-testid="input-customer-phone"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Email</Label>
+                  <Input
+                    type="email"
+                    value={invoiceData.buyer.email}
+                    onChange={(e) => updateInvoice('buyer.email', e.target.value)}
+                    data-testid="input-customer-email"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="buyer-gstin" className="text-xs">GSTIN (Optional for B2C)</Label>
+                <Label className="text-xs">GSTIN (Optional)</Label>
                 <Input
-                  id="buyer-gstin"
-                  value={invoiceData.buyer.gstin}
-                  className="font-mono"
                   placeholder="29ABCDE1234F1Z5"
-                  data-testid="input-buyer-gstin"
+                  className="font-mono"
+                  value={invoiceData.buyer.gstin}
+                  onChange={(e) => updateInvoice('buyer.gstin', e.target.value)}
+                  data-testid="input-customer-gstin"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="buyer-address" className="text-xs">Address</Label>
-                <Textarea
-                  id="buyer-address"
-                  value={invoiceData.buyer.address}
-                  rows={2}
-                  data-testid="input-buyer-address"
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <Label className="text-xs font-medium">Billing Address</Label>
+                  <Textarea
+                    placeholder="Address"
+                    rows={2}
+                    value={invoiceData.buyer.billingAddress}
+                    onChange={(e) => updateInvoice('buyer.billingAddress', e.target.value)}
+                    data-testid="input-billing-address"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="City"
+                      value={invoiceData.buyer.billingCity}
+                      onChange={(e) => updateInvoice('buyer.billingCity', e.target.value)}
+                      data-testid="input-billing-city"
+                    />
+                    <Input
+                      placeholder="Pincode"
+                      value={invoiceData.buyer.billingPincode}
+                      onChange={(e) => updateInvoice('buyer.billingPincode', e.target.value)}
+                      data-testid="input-billing-pincode"
+                    />
+                  </div>
+                  <Select
+                    value={invoiceData.buyer.billingState}
+                    onValueChange={(v) => updateInvoice('buyer.billingState', v)}
+                  >
+                    <SelectTrigger data-testid="select-billing-state">
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="KARNATAKA">Karnataka (29)</SelectItem>
+                      <SelectItem value="KERALA">Kerala (32)</SelectItem>
+                      <SelectItem value="MAHARASHTRA">Maharashtra (27)</SelectItem>
+                      <SelectItem value="JHARKHAND">Jharkhand (20)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Shipping Address</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 text-xs text-primary"
+                      onClick={() => {
+                        updateInvoice('buyer.shippingAddress', invoiceData.buyer.billingAddress);
+                        updateInvoice('buyer.shippingCity', invoiceData.buyer.billingCity);
+                        updateInvoice('buyer.shippingState', invoiceData.buyer.billingState);
+                        updateInvoice('buyer.shippingPincode', invoiceData.buyer.billingPincode);
+                      }}
+                      data-testid="button-copy-billing"
+                    >
+                      Copy from Billing
+                    </Button>
+                  </div>
+                  <Textarea
+                    placeholder="Address"
+                    rows={2}
+                    value={invoiceData.buyer.shippingAddress}
+                    onChange={(e) => updateInvoice('buyer.shippingAddress', e.target.value)}
+                    data-testid="input-shipping-address"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="City"
+                      value={invoiceData.buyer.shippingCity}
+                      onChange={(e) => updateInvoice('buyer.shippingCity', e.target.value)}
+                      data-testid="input-shipping-city"
+                    />
+                    <Input
+                      placeholder="Pincode"
+                      value={invoiceData.buyer.shippingPincode}
+                      onChange={(e) => updateInvoice('buyer.shippingPincode', e.target.value)}
+                      data-testid="input-shipping-pincode"
+                    />
+                  </div>
+                  <Select
+                    value={invoiceData.buyer.shippingState}
+                    onValueChange={(v) => updateInvoice('buyer.shippingState', v)}
+                  >
+                    <SelectTrigger data-testid="select-shipping-state">
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="KARNATAKA">Karnataka (29)</SelectItem>
+                      <SelectItem value="KERALA">Kerala (32)</SelectItem>
+                      <SelectItem value="MAHARASHTRA">Maharashtra (27)</SelectItem>
+                      <SelectItem value="JHARKHAND">Jharkhand (20)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="buyer-state" className="text-xs">State</Label>
-                <Select defaultValue="karnataka">
-                  <SelectTrigger id="buyer-state" data-testid="select-buyer-state">
-                    <SelectValue />
+                <Label className="text-xs">Place of Supply</Label>
+                <Select
+                  value={invoiceData.placeOfSupply}
+                  onValueChange={(v) => updateInvoice('placeOfSupply', v)}
+                >
+                  <SelectTrigger data-testid="select-place-of-supply">
+                    <SelectValue placeholder="Select state" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="karnataka">Karnataka (29)</SelectItem>
-                    <SelectItem value="maharashtra">Maharashtra (27)</SelectItem>
-                    <SelectItem value="tamil-nadu">Tamil Nadu (33)</SelectItem>
-                    <SelectItem value="delhi">Delhi (07)</SelectItem>
+                    <SelectItem value="32-KERALA">32-KERALA</SelectItem>
+                    <SelectItem value="29-KARNATAKA">29-KARNATAKA</SelectItem>
+                    <SelectItem value="27-MAHARASHTRA">27-MAHARASHTRA</SelectItem>
+                    <SelectItem value="20-JHARKHAND">20-JHARKHAND</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -179,74 +538,450 @@ export default function InvoiceCreate() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <CardTitle className="text-base">Line Items</CardTitle>
-              <Button size="sm" variant="outline" data-testid="button-add-item">
-                Add Item
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Other details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Invoice Date</Label>
+                  <Input
+                    type="date"
+                    value={invoiceData.invoiceDate}
+                    onChange={(e) => updateInvoice('invoiceDate', e.target.value)}
+                    data-testid="input-invoice-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Due Date</Label>
+                  <Input
+                    type="date"
+                    value={invoiceData.dueDate}
+                    onChange={(e) => updateInvoice('dueDate', e.target.value)}
+                    data-testid="input-due-date"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Reference</Label>
+                  <Input
+                    placeholder="Reference, e.g. PO Number, Sales Person name, Shipment Number etc..."
+                    value={invoiceData.reference}
+                    onChange={(e) => updateInvoice('reference', e.target.value)}
+                    data-testid="input-reference"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-sm font-medium">Products & Services</CardTitle>
+                <Checkbox
+                  id="show-description"
+                  checked={showDescription}
+                  onCheckedChange={(checked) => setShowDescription(checked as boolean)}
+                  data-testid="checkbox-show-description"
+                />
+                <Label htmlFor="show-description" className="text-xs font-normal cursor-pointer">
+                  Show description
+                </Label>
+              </div>
+              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-product">
+                + Add new Product?
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 border rounded-lg space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search, scan barcode for existing products or search..."
+                  className="pl-9"
+                  data-testid="input-product-search"
+                />
+              </div>
+
+              <div className="space-y-3">
+                {invoiceData.items.map((item, index) => (
+                  <div key={item.id} className="p-4 border rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Item {index + 1}</Label>
+                      {invoiceData.items.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="w-6 h-6"
+                          onClick={() => removeLineItem(item.id)}
+                          data-testid={`button-remove-item-${index}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs">Product Name</Label>
+                      <Input
+                        placeholder="Enter product name"
+                        value={item.description}
+                        onChange={(e) => updateItem(index, 'description', e.target.value)}
+                        data-testid={`input-product-name-${index}`}
+                      />
+                    </div>
+
+                    {showDescription && (
+                      <div className="space-y-2">
+                        <Label className="text-xs">Description</Label>
+                        <Textarea
+                          placeholder="Product description, specifications, materials, care instructions..."
+                          rows={3}
+                          value={item.details}
+                          onChange={(e) => updateItem(index, 'details', e.target.value)}
+                          data-testid={`input-description-${index}`}
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Quantity</Label>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          className="font-mono"
+                          data-testid={`input-quantity-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Unit</Label>
+                        <Select
+                          value={item.unit}
+                          onValueChange={(v) => updateItem(index, 'unit', v)}
+                        >
+                          <SelectTrigger data-testid={`select-unit-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="UNT">UNT</SelectItem>
+                            <SelectItem value="PCS">PCS</SelectItem>
+                            <SelectItem value="KG">KG</SelectItem>
+                            <SelectItem value="L">L</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">HSN</Label>
+                        <Input
+                          placeholder="HSN Code"
+                          className="font-mono"
+                          value={item.hsn}
+                          onChange={(e) => updateItem(index, 'hsn', e.target.value)}
+                          data-testid={`input-hsn-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Unit Price</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          className="font-mono"
+                          value={item.rate || ''}
+                          onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-unit-price-${index}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-3">
+                      <div className="space-y-2">
+                        <Label className="text-xs">Taxable Value</Label>
+                        <Input
+                          value={`₹${item.taxableValue.toFixed(2)}`}
+                          disabled
+                          className="font-mono bg-muted"
+                          data-testid={`input-taxable-value-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Discount %</Label>
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          className="font-mono"
+                          value={item.discount || ''}
+                          onChange={(e) => updateItem(index, 'discount', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-discount-${index}`}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Tax Rate</Label>
+                        <Select
+                          value={String(item.gstRate)}
+                          onValueChange={(v) => updateItem(index, 'gstRate', parseInt(v))}
+                        >
+                          <SelectTrigger data-testid={`select-tax-rate-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">0%</SelectItem>
+                            <SelectItem value="5">5%</SelectItem>
+                            <SelectItem value="12">12%</SelectItem>
+                            <SelectItem value="18">18%</SelectItem>
+                            <SelectItem value="28">28%</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Total Amount</Label>
+                        <Input
+                          value={`₹${item.total.toFixed(2)}`}
+                          disabled
+                          className="font-mono bg-muted"
+                          data-testid={`input-total-amount-${index}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addLineItem}
+                  data-testid="button-add-line-item"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
+
+              <div className="pt-4 space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Items: 0, Qty: 0.000</span>
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-create-ai">
+                    + Create invoices with AI
+                  </Button>
+                </div>
+
                 <div className="space-y-2">
-                  <Label className="text-xs">Description</Label>
+                  <Label className="text-xs">Apply discount(%) to all items?</Label>
                   <Input
-                    value={invoiceData.items[0].description}
-                    data-testid="input-item-description-0"
+                    type="number"
+                    placeholder="0"
+                    className="w-32 font-mono"
+                    data-testid="input-global-discount"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+              <CardTitle className="text-sm font-medium">Additional Charges</CardTitle>
+              <Button variant="outline" size="sm" data-testid="button-add-charge">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Charge
+              </Button>
+            </CardHeader>
+          </Card>
+
+          <Collapsible open={showNotes} onOpenChange={setShowNotes}>
+            <Card>
+              <CardHeader>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start p-0" data-testid="button-toggle-notes">
+                    <ChevronDown className={`w-4 h-4 mr-2 transition-transform ${showNotes ? 'rotate-180' : ''}`} />
+                    <CardTitle className="text-sm font-medium">Notes, terms & more...</CardTitle>
+                  </Button>
+                </CollapsibleTrigger>
+              </CardHeader>
+              <CollapsibleContent>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">HSN Code</Label>
-                    <Input
-                      value={invoiceData.items[0].hsn}
-                      className="font-mono"
-                      data-testid="input-item-hsn-0"
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Notes</Label>
+                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-new-notes">
+                        + New Notes
+                      </Button>
+                    </div>
+                    <Textarea
+                      placeholder="Enter your notes, say thanks or anything else..."
+                      rows={3}
+                      value={invoiceData.notes}
+                      onChange={(e) => updateInvoice('notes', e.target.value)}
+                      data-testid="input-notes"
                     />
                   </div>
+
                   <div className="space-y-2">
-                    <Label className="text-xs">GST Rate (%)</Label>
-                    <Select defaultValue="18">
-                      <SelectTrigger data-testid="select-item-gst-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">0%</SelectItem>
-                        <SelectItem value="5">5%</SelectItem>
-                        <SelectItem value="12">12%</SelectItem>
-                        <SelectItem value="18">18%</SelectItem>
-                        <SelectItem value="28">28%</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Terms & Conditions</Label>
+                      <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-new-terms">
+                        + New Terms
+                      </Button>
+                    </div>
+                    <Textarea
+                      placeholder="Enter your terms and conditions..."
+                      rows={3}
+                      value={invoiceData.terms}
+                      onChange={(e) => updateInvoice('terms', e.target.value)}
+                      data-testid="input-terms"
+                    />
                   </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">TDS</Label>
+                <Switch
+                  checked={showTDS}
+                  onCheckedChange={setShowTDS}
+                  data-testid="switch-tds"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">TCS</Label>
+                <Switch
+                  checked={showTCS}
+                  onCheckedChange={setShowTCS}
+                  data-testid="switch-tcs"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Select Bank</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Select defaultValue="hdfc">
+                <SelectTrigger data-testid="select-bank">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hdfc">HDFC Bank (50200080109371)</SelectItem>
+                  <SelectItem value="sbi">SBI (12345678901234)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="p-3 bg-muted rounded-lg text-xs space-y-1 font-mono">
+                <p>Bank: HDFC Bank</p>
+                <p>Account #: 50200080109371</p>
+                <p>IFSC Code: HDFC0000150</p>
+                <p>Branch: main road</p>
+              </div>
+
+              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-bank">
+                + Add New Bank
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Add payment (Payment Notes, Amount and Mode)</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-xs">Notes</Label>
+                  <Input
+                    placeholder="Advance, UTR number etc..."
+                    data-testid="input-payment-notes"
+                  />
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Quantity</Label>
-                    <Input
-                      type="number"
-                      value={invoiceData.items[0].quantity}
-                      className="font-mono"
-                      data-testid="input-item-quantity-0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Rate (₹)</Label>
-                    <Input
-                      type="number"
-                      value={invoiceData.items[0].rate}
-                      className="font-mono"
-                      data-testid="input-item-rate-0"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Total</Label>
-                    <Input
-                      value={`₹${invoiceData.items[0].total}`}
-                      disabled
-                      className="font-mono bg-muted"
-                      data-testid="input-item-total-0"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Amount</Label>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    className="font-mono"
+                    data-testid="input-payment-amount"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs">Payment Mode</Label>
+                  <Select defaultValue="upi">
+                    <SelectTrigger data-testid="select-payment-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="card">Card</SelectItem>
+                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <Label className="text-sm">Mark as fully paid</Label>
+                <Switch
+                  checked={markAsPaid}
+                  onCheckedChange={setMarkAsPaid}
+                  data-testid="switch-mark-paid"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-sm">Reverse Charge Mechanism applicable?</Label>
+                  <p className="text-xs text-muted-foreground">
+                    RCM is applicable for unregistered vendors only
+                  </p>
+                </div>
+                <Switch
+                  checked={reverseCharge}
+                  onCheckedChange={setReverseCharge}
+                  data-testid="switch-reverse-charge"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Create E-Waybill</Label>
+                <Switch
+                  checked={createEWaybill}
+                  onCheckedChange={setCreateEWaybill}
+                  data-testid="switch-ewaybill"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Create E-Invoice</Label>
+                <Switch
+                  checked={createEInvoice}
+                  onCheckedChange={setCreateEInvoice}
+                  data-testid="switch-einvoice"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Attach files</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-center border-2 border-dashed rounded-lg p-8">
+                <div className="text-center">
+                  <Upload className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">Attach Files (Max: 5)</p>
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs mt-2 text-primary" data-testid="button-attach-files">
+                    Choose Files
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -254,42 +989,53 @@ export default function InvoiceCreate() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Notes & Terms</CardTitle>
+              <CardTitle className="text-sm font-medium">Select Signature</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="notes" className="text-xs">Invoice Notes</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="E.g., Payment terms, delivery instructions..."
-                  rows={3}
-                  data-testid="input-notes"
-                />
+              <Select defaultValue="no-signature">
+                <SelectTrigger data-testid="select-signature">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no-signature">No Signature</SelectItem>
+                  <SelectItem value="digital">Digital Signature</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="p-8 bg-muted/30 rounded-lg text-center text-sm text-muted-foreground">
+                Signature on the document
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="terms" className="text-xs">Terms & Conditions</Label>
-                <Textarea
-                  id="terms"
-                  defaultValue="Goods once sold will not be taken back or exchanged."
-                  rows={2}
-                  data-testid="input-terms"
-                />
-              </div>
+
+              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-signature">
+                + Add New Signature
+              </Button>
             </CardContent>
           </Card>
+
+          <div className="flex items-center justify-end gap-2 pt-6">
+            <Button variant="outline" data-testid="button-save-draft-bottom">
+              Save as Draft
+            </Button>
+            <Button variant="outline" data-testid="button-save-print-bottom">
+              Save and Print
+            </Button>
+            <Button data-testid="button-save-bottom">
+              Save
+            </Button>
+          </div>
         </div>
 
-        <div className="lg:col-span-3 sticky top-6 h-fit">
-          <div className="bg-muted p-6 rounded-lg">
+        <div className="lg:col-span-2 sticky top-6 h-fit">
+          <div className="bg-muted p-4 rounded-lg">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Preview</h2>
+              <h2 className="text-sm font-semibold">Preview</h2>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" data-testid="button-zoom-out">-</Button>
                 <Button variant="outline" size="sm" data-testid="button-zoom-in">+</Button>
               </div>
             </div>
-            <div className="overflow-auto max-h-[calc(100vh-12rem)]">
-              <InvoicePreview data={invoiceData} />
+            <div className="overflow-auto max-h-[calc(100vh-10rem)]">
+              <InvoicePreview data={previewData} />
             </div>
           </div>
         </div>
