@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Search, Upload, Filter, AlertCircle, CheckCircle, FileText } from "lucide-react";
+import {
+  Search, Upload, ShoppingCart, FileText, CheckCircle, Clock,
+  Plus, X, Package, Download, AlertCircle
+} from "lucide-react";
 import { OrdersTable } from "@/components/orders-table";
-import { FilterPanel } from "@/components/filter-panel";
-import { BulkActionsBar } from "@/components/bulk-actions-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -16,27 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 
 type Order = {
   id: number;
@@ -44,53 +35,19 @@ type Order = {
   orderDate: string;
   customerName: string;
   customerEmail: string;
-  customerPhone?: string;
-  billingAddress?: string;
-  shippingAddress?: string;
-  shippingState?: string;
-  shippingStateCode?: string;
   total: string;
-  subtotal: string;
-  taxTotal: string;
-  discountTotal: string;
-  shippingTotal: string;
-  paymentStatus: string;
   hasInvoice: boolean;
   invoiceNumber?: string;
-  rawJson?: any;
-  items?: Array<{
-    id: number;
-    name: string;
-    sku?: string;
-    hsnCode?: string;
-    quantity: number;
-    unitPrice: string;
-    gstRate: number;
-    discount?: string;
-  }>;
+  paymentStatus: string;
 };
-
-type Entity = {
-  id: number;
-  legalName: string;
-  gstin?: string;
-};
-
-type SortField = 'date' | 'customer' | 'amount' | 'orderNumber';
-type SortDirection = 'asc' | 'desc';
 
 export default function Orders() {
-  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
-  const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
-  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<string | null>(null);
-  const [sortField, setSortField] = useState<SortField>('date');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [isDragging, setIsDragging] = useState(false);
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -98,38 +55,29 @@ export default function Orders() {
     queryKey: ["/api/orders"],
   });
 
-  const { data: entitiesData, isLoading: entitiesLoading } = useQuery<Entity[]>({
-    queryKey: ["/api/entities"],
-  });
-
-  const { data: orderDetails } = useQuery<Order>({
-    queryKey: ["/api/orders", selectedOrderForDetails],
-    enabled: !!selectedOrderForDetails,
-  });
-
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      
+
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
+
       const res = await fetch("/api/orders/import-csv", {
         method: "POST",
         headers,
         body: formData,
         credentials: "include",
       });
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || `Import failed with status ${res.status}`);
       }
-      
+
       return res.json();
     },
     onSuccess: (data) => {
@@ -137,7 +85,7 @@ export default function Orders() {
       setImportResult(data);
       toast({
         title: "Import Complete",
-        description: `Imported ${data.importedCount || 0} orders, Skipped ${data.skipped || 0}, Duplicates ${data.duplicates || 0}`,
+        description: `Imported ${data.importedCount || 0} orders successfully`,
       });
     },
     onError: (error: any) => {
@@ -149,113 +97,64 @@ export default function Orders() {
     },
   });
 
-  const generateInvoiceMutation = useMutation({
-    mutationFn: async (orderId: string) => {
-      // Get the first entity - required for invoice generation
-      const entities = entitiesData || [];
-      if (entities.length === 0) {
-        throw new Error("No business entity found. Please create an entity in Settings first.");
-      }
-      
-      const entityId = entities[0].id;
-      
-      const token = localStorage.getItem("auth_token");
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const res = await fetch(`/api/orders/${orderId}/create-invoice`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ entityId }),
-        credentials: "include",
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || `Failed to generate invoice`);
-      }
-      
-      return res.json();
-    },
-    onSuccess: (data) => {
-      queryClient.refetchQueries({ queryKey: ["/api/orders"] });
-      toast({
-        title: "Invoice Generated",
-        description: `Invoice ${data.invoiceNumber || data.id} created successfully`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Generate Invoice",
-        description: error.message || "Could not create invoice",
-        variant: "destructive",
-      });
-    },
-  });
+  // Transform orders data
+  const allOrders = useMemo(() => {
+    return ordersData?.map(order => ({
+      id: order.id.toString(),
+      orderNumber: order.shopifyOrderNumber,
+      date: new Date(order.orderDate).toLocaleDateString('en-IN'),
+      dateObj: new Date(order.orderDate),
+      customer: order.customerName,
+      email: order.customerEmail,
+      amount: parseFloat(order.total),
+      amountDisplay: `₹${parseFloat(order.total).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+      paymentStatus: order.paymentStatus || 'unpaid',
+      invoiceStatus: order.hasInvoice ? 'invoiced' : 'uninvoiced',
+      invoiceNumber: order.invoiceNumber,
+    })) || [];
+  }, [ordersData]);
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (orderIds: string[]) => {
-      const res = await apiRequest("POST", "/api/orders/bulk-delete", { orderIds });
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      setSelectedOrders([]);
-      setIsDeleteConfirmOpen(false);
-      setIsDeleteAllConfirmOpen(false);
-      toast({
-        title: "Orders Deleted",
-        description: `Successfully deleted ${data.deletedCount} order(s)`,
-      });
-      if (data.errors && data.errors.length > 0) {
-        toast({
-          title: "Some Orders Could Not Be Deleted",
-          description: data.errors.join(", "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Delete Orders",
-        description: error.message || "Could not delete orders",
-        variant: "destructive",
-      });
-    },
-  });
+  // Apply filters and search
+  const filteredOrders = useMemo(() => {
+    let filtered = [...allOrders];
 
-  const bulkGenerateInvoicesMutation = useMutation({
-    mutationFn: async ({ orderIds, entityId }: { orderIds: string[]; entityId: number }) => {
-      const res = await apiRequest("POST", "/api/orders/bulk-generate-invoices", { orderIds, entityId });
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      setSelectedOrders([]);
-      setIsGenerateConfirmOpen(false);
-      toast({
-        title: "Invoices Generated",
-        description: `Successfully generated ${data.createdCount} invoice(s)`,
-      });
-      if (data.errors && data.errors.length > 0) {
-        toast({
-          title: "Some Invoices Could Not Be Generated",
-          description: data.errors.join(", "),
-          variant: "destructive",
-        });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Generate Invoices",
-        description: error.message || "Could not generate invoices",
-        variant: "destructive",
-      });
-    },
-  });
+    // Apply search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(order =>
+        order.orderNumber.toLowerCase().includes(query) ||
+        order.customer.toLowerCase().includes(query) ||
+        order.email?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(order => order.invoiceStatus === statusFilter);
+    }
+
+    // Sort by date (newest first)
+    filtered.sort((a, b) => b.dateObj.getTime() - a.dateObj.getTime());
+
+    return filtered;
+  }, [allOrders, searchQuery, statusFilter]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = allOrders.length;
+    const invoiced = allOrders.filter(o => o.invoiceStatus === 'invoiced').length;
+    const uninvoiced = allOrders.filter(o => o.invoiceStatus === 'uninvoiced').length;
+    const totalRevenue = allOrders.reduce((sum, o) => sum + o.amount, 0);
+
+    return { total, invoiced, uninvoiced, totalRevenue };
+  }, [allOrders]);
+
+  const hasActiveFilters = searchQuery || statusFilter !== "all";
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  };
 
   const handleImport = () => {
     if (importFile) {
@@ -273,282 +172,334 @@ export default function Orders() {
     navigate(`/invoices/new?orderId=${orderId}`);
   };
 
-  const handleViewDetails = (orderId: string) => {
-    setSelectedOrderForDetails(orderId);
-  };
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
 
-  const handleBulkDelete = () => {
-    setIsDeleteConfirmOpen(true);
-  };
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
-  const handleConfirmDelete = () => {
-    bulkDeleteMutation.mutate(selectedOrders);
-  };
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
 
-  const deleteAllMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/orders/delete-all", {});
-      return res.json();
-    },
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      setIsDeleteAllConfirmOpen(false);
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(f => f.name.endsWith('.csv'));
+
+    if (csvFile) {
+      setImportFile(csvFile);
       toast({
-        title: "All Data Deleted",
-        description: `Successfully deleted ${data.deletedInvoicesCount || 0} invoice(s) and ${data.deletedOrdersCount || 0} order(s)`,
+        title: "File Selected",
+        description: csvFile.name,
       });
-      if (data.errors && data.errors.length > 0) {
+    } else {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
+
+  const handleDownloadSample = () => {
+    const token = localStorage.getItem("auth_token");
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    fetch("/api/orders/sample-csv", {
+      method: "GET",
+      headers,
+      credentials: "include",
+    })
+      .then(res => res.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "orders-sample.csv";
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      })
+      .catch(error => {
         toast({
-          title: "Some Items Could Not Be Deleted",
-          description: data.errors.join(", "),
+          title: "Download Failed",
+          description: "Could not download sample CSV",
           variant: "destructive",
         });
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Failed to Delete Orders",
-        description: error.message || "Could not delete all orders",
-        variant: "destructive",
       });
-    },
-  });
-
-  const handleDeleteAll = () => {
-    setIsDeleteAllConfirmOpen(true);
   };
 
-  const handleConfirmDeleteAll = () => {
-    deleteAllMutation.mutate();
-  };
-
-  const handleBulkGenerateInvoices = () => {
-    if (entitiesLoading) {
-      toast({
-        title: "Please Wait",
-        description: "Loading business entities...",
-        variant: "default",
-      });
-      return;
-    }
-    
-    if (!entitiesData || entitiesData.length === 0) {
-      toast({
-        title: "No Business Entity",
-        description: "Please create a business entity in Settings first.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsGenerateConfirmOpen(true);
-  };
-
-  const handleConfirmGenerateInvoices = () => {
-    const entityId = entitiesData?.[0]?.id;
-    if (!entityId) return;
-    bulkGenerateInvoicesMutation.mutate({ orderIds: selectedOrders, entityId });
-  };
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  const orders = ordersData?.map(order => {
-    // Map backend payment status directly - don't collapse values
-    const paymentStatus = (order.paymentStatus || 'unpaid') as 'paid' | 'pending' | 'partial' | 'refunded' | 'unpaid';
-
-    return {
-      id: order.id.toString(),
-      orderNumber: order.shopifyOrderNumber,
-      date: new Date(order.orderDate).toLocaleDateString(),
-      dateValue: new Date(order.orderDate).getTime(),
-      customer: order.customerName,
-      amount: `₹${parseFloat(order.total).toFixed(2)}`,
-      amountValue: parseFloat(order.total),
-      paymentStatus,
-      fulfillmentStatus: 'fulfilled' as const, // Placeholder - backend doesn't track this field
-      invoiceStatus: order.hasInvoice ? 'invoiced' as const : 'uninvoiced' as const,
-      invoiceNumber: order.invoiceNumber,
-    };
-  }) || [];
-
-  const sortedOrders = [...orders].sort((a, b) => {
-    let comparison = 0;
-    
-    switch (sortField) {
-      case 'date':
-        comparison = a.dateValue - b.dateValue;
-        break;
-      case 'customer':
-        comparison = a.customer.localeCompare(b.customer);
-        break;
-      case 'amount':
-        comparison = a.amountValue - b.amountValue;
-        break;
-      case 'orderNumber':
-        comparison = a.orderNumber.localeCompare(b.orderNumber);
-        break;
-    }
-    
-    return sortDirection === 'asc' ? comparison : -comparison;
-  });
-
-  const handleSelectOrder = (orderId: string, selected: boolean) => {
-    if (selected) {
-      setSelectedOrders([...selectedOrders, orderId]);
-    } else {
-      setSelectedOrders(selectedOrders.filter(id => id !== orderId));
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+        <div className="h-96 bg-muted animate-pulse rounded-lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Orders</h1>
-          <p className="text-muted-foreground text-sm mt-1">Manage and invoice your Shopify orders</p>
+          <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
+          <p className="text-muted-foreground mt-1">Import and manage your Shopify orders</p>
         </div>
-        <div className="flex items-center gap-2">
-          {orders.length > 0 && (
-            <Button 
-              variant="destructive" 
-              size="sm" 
-              onClick={handleDeleteAll}
-              data-testid="button-delete-all"
-            >
-              Delete All Orders
-            </Button>
-          )}
-          <Button 
-            variant="default" 
-            size="sm" 
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="default" onClick={handleDownloadSample}>
+            <Download className="w-4 h-4 mr-2" />
+            Sample CSV
+          </Button>
+          <Button
+            size="default"
+            className="bg-blue-600 hover:bg-blue-700"
             onClick={() => setIsImportDialogOpen(true)}
-            data-testid="button-import-csv"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Import CSV
+            Import Orders
           </Button>
         </div>
       </div>
 
-      <div className="flex gap-6">
-        {showFilters && (
-          <div className="w-64 flex-shrink-0">
-            <FilterPanel filterType="orders" onFilterChange={(filters) => console.log('Filters:', filters)} />
-          </div>
-        )}
-
-        <div className="flex-1 space-y-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search orders by number, customer..."
-                className="pl-9"
-                data-testid="input-search-orders"
-              />
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Orders</p>
+              <p className="text-2xl font-bold mt-1">{stats.total}</p>
             </div>
-            <Button
-              variant={showFilters ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              data-testid="button-toggle-filters"
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              Filters
-            </Button>
+            <ShoppingCart className="w-8 h-8 text-muted-foreground opacity-50" />
           </div>
-
-          {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading orders...</div>
-          ) : orders.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No orders found. Import your Shopify orders CSV to get started.
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Invoiced</p>
+              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{stats.invoiced}</p>
             </div>
-          ) : (
-            <OrdersTable
-              orders={sortedOrders}
-              onSelectOrder={handleSelectOrder}
-              selectedOrders={selectedOrders}
-              onGenerateInvoice={handleGenerateInvoice}
-              onViewDetails={handleViewDetails}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-            />
-          )}
-
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <p>Showing 1-5 of 156 orders</p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled data-testid="button-prev-page">
-                Previous
-              </Button>
-              <Button variant="outline" size="sm" data-testid="button-next-page">
-                Next
-              </Button>
+            <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
             </div>
           </div>
-        </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Uninvoiced</p>
+              <p className="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{stats.uninvoiced}</p>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Revenue</p>
+              <p className="text-2xl font-bold mt-1">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <Package className="w-8 h-8 text-muted-foreground opacity-50" />
+          </div>
+        </Card>
       </div>
 
-      <BulkActionsBar
-        selectedCount={selectedOrders.length}
-        onClose={() => setSelectedOrders([])}
-        onGenerateInvoices={handleBulkGenerateInvoices}
-        onDelete={handleBulkDelete}
-      />
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by order #, customer, email..."
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full md:w-[180px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Orders</SelectItem>
+              <SelectItem value="invoiced">Invoiced</SelectItem>
+              <SelectItem value="uninvoiced">Uninvoiced</SelectItem>
+            </SelectContent>
+          </Select>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="default" onClick={clearFilters}>
+              <X className="w-4 h-4 mr-2" />
+              Clear
+            </Button>
+          )}
+        </div>
 
+        {hasActiveFilters && (
+          <div className="flex items-center gap-2 mt-4">
+            <span className="text-sm text-muted-foreground">Active filters:</span>
+            {searchQuery && (
+              <Badge variant="secondary" className="gap-1">
+                Search: {searchQuery}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setSearchQuery("")} />
+              </Badge>
+            )}
+            {statusFilter !== "all" && (
+              <Badge variant="secondary" className="gap-1">
+                Status: {statusFilter}
+                <X className="w-3 h-3 cursor-pointer" onClick={() => setStatusFilter("all")} />
+              </Badge>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Orders Table */}
+      {filteredOrders.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center">
+            <ShoppingCart className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">
+              {hasActiveFilters ? "No orders found" : "No orders yet"}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              {hasActiveFilters
+                ? "Try adjusting your filters or search query"
+                : "Import your Shopify orders CSV to get started"
+              }
+            </p>
+            {hasActiveFilters ? (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            ) : (
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setIsImportDialogOpen(true)}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Import Orders
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <>
+          <OrdersTable
+            orders={filteredOrders}
+            onGenerateInvoice={handleGenerateInvoice}
+          />
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <p>Showing {filteredOrders.length} of {allOrders.length} orders</p>
+          </div>
+        </>
+      )}
+
+      {/* Import Dialog */}
       <Dialog open={isImportDialogOpen} onOpenChange={handleCloseImportDialog}>
-        <DialogContent className="max-w-2xl" data-testid="dialog-import-csv">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Import Orders from Shopify CSV</DialogTitle>
             <DialogDescription>
-              Upload your Shopify orders export CSV file. The system will automatically match products and calculate GST.
+              Upload your Shopify orders export CSV file. Orders will be automatically matched with products.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             {!importResult ? (
               <>
-                <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                  <Input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                    className="max-w-xs mx-auto"
-                    data-testid="input-csv-file"
-                  />
-                  <p className="text-sm text-muted-foreground mt-2">
-                    {importFile ? importFile.name : "Select a CSV file"}
-                  </p>
+                {/* Drag & Drop Zone */}
+                <div
+                  className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                    isDragging
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                      : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
+                  <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  {importFile ? (
+                    <div>
+                      <p className="font-medium mb-2">{importFile.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(importFile.size / 1024).toFixed(2)} KB
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setImportFile(null)}
+                      >
+                        Remove file
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-lg font-medium mb-2">
+                        Drag & drop your CSV file here
+                      </p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        or click to browse
+                      </p>
+                      <Input
+                        type="file"
+                        accept=".csv"
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                        className="max-w-xs mx-auto cursor-pointer"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>CSV Format</AlertTitle>
+                  <AlertTitle>CSV Format Requirements</AlertTitle>
                   <AlertDescription>
-                    Export your orders from Shopify. The CSV should include columns like: Name, Email, Created at, Lineitem name, Lineitem quantity, Lineitem price, Shipping Province Code, etc.
+                    Export your orders from Shopify Admin → Orders → Export. The CSV should include columns like:
+                    Name, Email, Created at, Lineitem name, Lineitem quantity, Lineitem price, etc.
                   </AlertDescription>
                 </Alert>
               </>
             ) : (
               <div className="space-y-4">
-                <Alert className={importResult.errors?.length > 0 ? "border-destructive" : ""}>
+                <Alert>
                   <CheckCircle className="h-4 w-4" />
-                  <AlertTitle>Import Complete</AlertTitle>
+                  <AlertTitle>Import Complete!</AlertTitle>
                   <AlertDescription>
-                    <div className="space-y-1">
-                      <p>✓ Imported: {importResult.importedCount || 0} orders</p>
-                      <p>⊘ Duplicates: {importResult.duplicates || 0} orders</p>
-                      <p>⊗ Skipped: {importResult.skipped || 0} orders</p>
+                    <div className="space-y-1 mt-2">
+                      <p className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <span>Imported: <strong>{importResult.importedCount || 0}</strong> orders</span>
+                      </p>
+                      {importResult.duplicates > 0 && (
+                        <p className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-yellow-600" />
+                          <span>Skipped (duplicates): <strong>{importResult.duplicates}</strong> orders</span>
+                        </p>
+                      )}
+                      {importResult.skipped > 0 && (
+                        <p className="flex items-center gap-2">
+                          <X className="w-4 h-4 text-red-600" />
+                          <span>Errors: <strong>{importResult.skipped}</strong> orders</span>
+                        </p>
+                      )}
                     </div>
                   </AlertDescription>
                 </Alert>
@@ -556,9 +507,9 @@ export default function Orders() {
                 {importResult.errors && importResult.errors.length > 0 && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Errors</AlertTitle>
+                    <AlertTitle>Errors Occurred</AlertTitle>
                     <AlertDescription>
-                      <ul className="list-disc pl-4 space-y-1">
+                      <ul className="list-disc pl-4 space-y-1 mt-2">
                         {importResult.errors.slice(0, 5).map((error: string, i: number) => (
                           <li key={i} className="text-sm">{error}</li>
                         ))}
@@ -576,308 +527,30 @@ export default function Orders() {
           <DialogFooter>
             {!importResult ? (
               <>
-                <Button variant="outline" onClick={handleCloseImportDialog} data-testid="button-cancel">
+                <Button variant="outline" onClick={handleCloseImportDialog}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleImport}
                   disabled={!importFile || importMutation.isPending}
-                  data-testid="button-upload"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {importMutation.isPending ? "Importing..." : "Upload & Import"}
+                  {importMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Import Orders
+                    </>
+                  )}
                 </Button>
               </>
             ) : (
-              <Button onClick={handleCloseImportDialog} data-testid="button-close">
+              <Button onClick={handleCloseImportDialog}>
                 Close
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <AlertDialogContent data-testid="dialog-confirm-delete">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Selected Orders</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete {selectedOrders.length} order(s)? This action cannot be undone. 
-              Orders with invoices cannot be deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={bulkDeleteMutation.isPending}
-              data-testid="button-confirm-delete"
-            >
-              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={isGenerateConfirmOpen} onOpenChange={setIsGenerateConfirmOpen}>
-        <AlertDialogContent data-testid="dialog-confirm-generate">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Generate Invoices</AlertDialogTitle>
-            <AlertDialogDescription>
-              Generate invoices for {selectedOrders.length} selected order(s)? 
-              Invoices will be created using your default business entity. 
-              Orders that already have invoices will be skipped.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-generate">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmGenerateInvoices}
-              disabled={bulkGenerateInvoicesMutation.isPending}
-              data-testid="button-confirm-generate"
-            >
-              {bulkGenerateInvoicesMutation.isPending ? "Generating..." : "Generate Invoices"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={isDeleteAllConfirmOpen} onOpenChange={setIsDeleteAllConfirmOpen}>
-        <AlertDialogContent data-testid="dialog-confirm-delete-all">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Orders & Invoices</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete ALL orders and their associated invoices? This action cannot be undone. 
-              This will delete approximately {ordersData?.length || 0} orders and any invoices created from them.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-all">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDeleteAll}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteAllMutation.isPending}
-              data-testid="button-confirm-delete-all"
-            >
-              {deleteAllMutation.isPending ? "Deleting..." : "Delete All"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={!!selectedOrderForDetails} onOpenChange={() => setSelectedOrderForDetails(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-order-details">
-          <DialogHeader>
-            <DialogTitle>Order Details</DialogTitle>
-            <DialogDescription>
-              {orderDetails?.shopifyOrderNumber || 'Loading...'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {orderDetails && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Order Date</Label>
-                  <p className="font-medium">{new Date(orderDetails.orderDate).toLocaleDateString('en-IN', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Payment Status</Label>
-                  <p className="font-medium capitalize">{orderDetails.paymentStatus}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Currency</Label>
-                  <p className="font-medium">{orderDetails.rawJson?.currency || 'INR'}</p>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground text-xs">Customer Information</Label>
-                <div className="mt-2 space-y-1">
-                  <p className="font-medium">{orderDetails.customerName}</p>
-                  {orderDetails.customerEmail && <p className="text-sm">{orderDetails.customerEmail}</p>}
-                  {orderDetails.customerPhone && <p className="text-sm">{orderDetails.customerPhone}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground text-xs">Billing Address</Label>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">{orderDetails.billingAddress || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground text-xs">Shipping Address</Label>
-                  <p className="text-sm mt-1 whitespace-pre-wrap">{orderDetails.shippingAddress || 'N/A'}</p>
-                  {orderDetails.shippingState && (
-                    <p className="text-sm mt-1">
-                      <span className="font-medium">State:</span> {orderDetails.shippingState} ({orderDetails.shippingStateCode})
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground text-xs mb-2">Order Items</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-right">GST Rate</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orderDetails.items?.map((item: any, idx: number) => {
-                        const itemSubtotal = item.quantity * parseFloat(item.unitPrice);
-                        const discount = parseFloat(item.discount || '0');
-                        return (
-                          <TableRow key={idx}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-sm">{item.name}</p>
-                                {item.sku && <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>}
-                                {item.hsnCode && <p className="text-xs text-muted-foreground">HSN: {item.hsnCode}</p>}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right">{item.quantity}</TableCell>
-                            <TableCell className="text-right font-mono">₹{parseFloat(item.unitPrice).toFixed(2)}</TableCell>
-                            <TableCell className="text-right">{item.gstRate}%</TableCell>
-                            <TableCell className="text-right font-mono font-medium">
-                              ₹{itemSubtotal.toFixed(2)}
-                              {discount > 0 && <p className="text-xs text-muted-foreground">-₹{discount.toFixed(2)} disc</p>}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="space-y-2 max-w-sm ml-auto">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal (Taxable):</span>
-                    <span className="font-mono">₹{parseFloat(orderDetails.subtotal).toFixed(2)}</span>
-                  </div>
-                  {parseFloat(orderDetails.discountTotal || '0') > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount:</span>
-                      <span className="font-mono text-destructive">-₹{parseFloat(orderDetails.discountTotal).toFixed(2)}</span>
-                    </div>
-                  )}
-                  {parseFloat(orderDetails.shippingTotal || '0') > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Shipping:</span>
-                      <span className="font-mono">₹{parseFloat(orderDetails.shippingTotal).toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">GST Tax:</span>
-                    <span className="font-mono">₹{parseFloat(orderDetails.taxTotal || '0').toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-medium text-lg border-t pt-2">
-                    <span>Grand Total:</span>
-                    <span className="font-mono">₹{parseFloat(orderDetails.total).toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {orderDetails.rawJson && Object.keys(orderDetails.rawJson).length > 0 && (
-                <div className="border-t pt-4">
-                  <Label className="text-muted-foreground text-xs mb-2">Additional Information from CSV</Label>
-                  <div className="grid grid-cols-2 gap-3 mt-2 text-sm">
-                    {orderDetails.rawJson['Financial Status'] && (
-                      <div>
-                        <span className="text-muted-foreground">Financial Status:</span>
-                        <p className="font-medium capitalize">{orderDetails.rawJson['Financial Status']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Paid at'] && (
-                      <div>
-                        <span className="text-muted-foreground">Paid At:</span>
-                        <p className="font-medium">{new Date(orderDetails.rawJson['Paid at']).toLocaleDateString('en-IN')}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Fulfillment Status'] && (
-                      <div>
-                        <span className="text-muted-foreground">Fulfillment:</span>
-                        <p className="font-medium capitalize">{orderDetails.rawJson['Fulfillment Status']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Shipping Name'] && (
-                      <div>
-                        <span className="text-muted-foreground">Ship To:</span>
-                        <p className="font-medium">{orderDetails.rawJson['Shipping Name']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Billing Name'] && orderDetails.rawJson['Billing Name'] !== orderDetails.rawJson['Shipping Name'] && (
-                      <div>
-                        <span className="text-muted-foreground">Bill To:</span>
-                        <p className="font-medium">{orderDetails.rawJson['Billing Name']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Discount Code'] && (
-                      <div>
-                        <span className="text-muted-foreground">Discount Code:</span>
-                        <p className="font-medium font-mono">{orderDetails.rawJson['Discount Code']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Discount Amount'] && parseFloat(orderDetails.rawJson['Discount Amount']) > 0 && (
-                      <div>
-                        <span className="text-muted-foreground">Discount Amount:</span>
-                        <p className="font-medium">₹{parseFloat(orderDetails.rawJson['Discount Amount']).toFixed(2)}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Shipping Method'] && (
-                      <div>
-                        <span className="text-muted-foreground">Shipping Method:</span>
-                        <p className="font-medium">{orderDetails.rawJson['Shipping Method']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Notes'] && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Notes:</span>
-                        <p className="font-medium">{orderDetails.rawJson['Notes']}</p>
-                      </div>
-                    )}
-                    {orderDetails.rawJson['Tags'] && (
-                      <div className="col-span-2">
-                        <span className="text-muted-foreground">Tags:</span>
-                        <p className="font-medium">{orderDetails.rawJson['Tags']}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setSelectedOrderForDetails(null)}
-              data-testid="button-close-details"
-            >
-              Close
-            </Button>
-            {orderDetails && !orderDetails.hasInvoice && (
-              <Button
-                onClick={() => {
-                  setSelectedOrderForDetails(null);
-                  handleGenerateInvoice(selectedOrderForDetails!);
-                }}
-                data-testid="button-create-invoice-from-details"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Create Invoice
               </Button>
             )}
           </DialogFooter>
