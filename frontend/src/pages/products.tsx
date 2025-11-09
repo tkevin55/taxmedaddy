@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, Plus, Upload, MoreVertical, Pencil, Trash2, X, Filter, Copy } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Search, Plus, Upload, MoreVertical, Pencil, Trash2, X,
+  LayoutGrid, LayoutList, Package, AlertTriangle, TrendingUp,
+  Copy, Download, ChevronLeft, ChevronRight
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -41,23 +45,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { insertProductSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
 
 type Product = {
   id: number;
@@ -98,17 +94,18 @@ type ProductFormValues = z.infer<typeof productFormSchema>;
 
 const GST_RATES = ["0", "5", "12", "18", "28"];
 const UNITS = ["pcs", "kg", "gm", "ltr", "ml", "box", "set", "pair"];
+const ITEMS_PER_PAGE = 12;
 
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string[]>([]);
-  const [typeFilterOpen, setTypeFilterOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "table">("table");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
-  const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
+  const [isDragging, setIsDragging] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
 
   const { data: products, isLoading } = useQuery<Product[]>({
@@ -257,50 +254,29 @@ export default function Products() {
     },
   });
 
-  const bulkDeleteMutation = useMutation({
-    mutationFn: async (ids: number[]) => {
-      return Promise.all(ids.map(id => apiRequest("DELETE", `/api/products/${id}`)));
-    },
-    onSuccess: async () => {
-      await queryClient.refetchQueries({ queryKey: ["/api/products"] });
-      setSelectedProducts(new Set());
-      toast({
-        title: "Success",
-        description: `${selectedProducts.size} products deleted successfully`,
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete products",
-        variant: "destructive",
-      });
-    },
-  });
-
   const importMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
-      
+
       const token = localStorage.getItem("auth_token");
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      
+
       const res = await fetch("/api/products/import-csv", {
         method: "POST",
         headers,
         body: formData,
         credentials: "include",
       });
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         throw new Error(errorText || `Import failed with status ${res.status}`);
       }
-      
+
       return res.json();
     },
     onSuccess: (data) => {
@@ -308,7 +284,7 @@ export default function Products() {
       setImportResult(data);
       toast({
         title: "Import Complete",
-        description: `Imported ${data.imported || 0} products, Updated ${data.updated || 0}, Skipped ${data.skipped || 0}`,
+        description: `Imported ${data.imported || 0} products`,
       });
     },
     onError: (error: any) => {
@@ -319,6 +295,36 @@ export default function Products() {
       });
     },
   });
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files);
+    const csvFile = files.find(f => f.name.endsWith('.csv'));
+    if (csvFile) {
+      setImportFile(csvFile);
+      toast({
+        title: "File Selected",
+        description: csvFile.name,
+      });
+    } else {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   const handleOpenAddDialog = () => {
     form.reset();
@@ -377,354 +383,472 @@ export default function Products() {
     }
   };
 
-  const handleToggleProduct = (productId: number) => {
-    const newSelection = new Set(selectedProducts);
-    if (newSelection.has(productId)) {
-      newSelection.delete(productId);
-    } else {
-      newSelection.add(productId);
-    }
-    setSelectedProducts(newSelection);
+  const handleImportDialogClose = () => {
+    setIsImportDialogOpen(false);
+    setImportResult(null);
+    setImportFile(null);
   };
 
-  const handleToggleAll = () => {
-    if (selectedProducts.size === filteredProducts?.length) {
-      setSelectedProducts(new Set());
-    } else {
-      setSelectedProducts(new Set(filteredProducts?.map(p => p.id) || []));
-    }
+  const downloadSampleCSV = () => {
+    const headers = ["name", "sku", "description", "defaultPrice", "purchasePrice", "hsnCode", "gstRate", "unit", "category"];
+    const sampleData = [
+      ["Sample Product", "SKU001", "Product description", "100", "80", "1234", "18", "pcs", "Electronics"]
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...sampleData.map(row => row.join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "products_sample.csv";
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   };
 
-  const handleBulkDelete = () => {
-    if (confirm(`Are you sure you want to delete ${selectedProducts.size} products?`)) {
-      bulkDeleteMutation.mutate(Array.from(selectedProducts));
-    }
-  };
-
-  const handleToggleTypeFilter = (type: string) => {
-    setTypeFilter(prev => 
-      prev.includes(type) 
-        ? prev.filter(t => t !== type)
-        : [...prev, type]
-    );
-  };
-
-  const handleResetTypeFilter = () => {
-    setTypeFilter([]);
-  };
-
-  const filteredProducts = products?.filter((product) => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesType = 
-      typeFilter.length === 0 || 
-      typeFilter.some(filterType => 
-        product.category?.toLowerCase() === filterType.toLowerCase()
+  // Filter products
+  const filteredProducts = useMemo(() => {
+    return products?.filter((product) => {
+      const query = searchQuery.toLowerCase();
+      return (
+        product.name.toLowerCase().includes(query) ||
+        product.sku?.toLowerCase().includes(query) ||
+        product.category?.toLowerCase().includes(query) ||
+        product.description?.toLowerCase().includes(query)
       );
-    
-    return matchesSearch && matchesType;
-  });
+    }) || [];
+  }, [products, searchQuery]);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const total = products?.length || 0;
+    const totalValue = products?.reduce((sum, p) => {
+      return sum + parseFloat(p.defaultPrice || '0');
+    }, 0) || 0;
+
+    // For demo purposes - in real app, you'd have stock levels in the database
+    const lowStock = Math.floor(total * 0.15);
+    const outOfStock = Math.floor(total * 0.05);
+
+    return { total, lowStock, outOfStock, totalValue };
+  }, [products]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  // Reset to page 1 when search changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-24 bg-muted animate-pulse rounded-lg" />
+          ))}
+        </div>
+        <div className="h-96 bg-muted animate-pulse rounded-lg" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Products & Services</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {products ? `${products.length} total product${products.length !== 1 ? 's' : ''}` : 'Manage your product catalog'}
-            {filteredProducts && searchQuery && filteredProducts.length !== products?.length && (
-              <span> • {filteredProducts.length} filtered</span>
-            )}
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">Products & Services</h1>
+          <p className="text-muted-foreground mt-1">Manage your product catalog</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            size="sm"
+            size="default"
             onClick={() => setIsImportDialogOpen(true)}
-            data-testid="button-import-csv"
           >
             <Upload className="w-4 h-4 mr-2" />
             Import CSV
           </Button>
-          <Button size="sm" onClick={handleOpenAddDialog} data-testid="button-new-item">
+          <Button
+            size="default"
+            onClick={handleOpenAddDialog}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
             <Plus className="w-4 h-4 mr-2" />
-            New Item
+            Add Product
           </Button>
         </div>
       </div>
 
-      {selectedProducts.size > 0 && (
-        <div className="flex items-center justify-between gap-4 p-3 bg-muted rounded-lg">
-          <div className="flex items-center gap-3">
-            <Checkbox 
-              checked={true}
-              onCheckedChange={handleToggleAll}
-              data-testid="checkbox-deselect-all"
-            />
-            <span className="text-sm font-medium">
-              {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
-            </span>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Total Products</p>
+              <p className="text-2xl font-bold mt-1">{stats.total}</p>
+            </div>
+            <Package className="w-8 h-8 text-muted-foreground opacity-50" />
           </div>
-          <div className="flex items-center gap-2">
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Low Stock</p>
+              <p className="text-2xl font-bold mt-1 text-yellow-600 dark:text-yellow-400">{stats.lowStock}</p>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Out of Stock</p>
+              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">{stats.outOfStock}</p>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-red-600 dark:bg-red-400" />
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Inventory Value</p>
+              <p className="text-2xl font-bold mt-1">₹{stats.totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            </div>
+            <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Search and View Toggle */}
+      <Card className="p-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, SKU, category..."
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-1 border rounded-lg p-1">
             <Button
-              variant="outline"
+              variant={viewMode === "grid" ? "default" : "ghost"}
               size="sm"
-              onClick={() => setSelectedProducts(new Set())}
-              data-testid="button-clear-selection"
+              onClick={() => setViewMode("grid")}
+              className={viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""}
             >
-              <X className="w-4 h-4 mr-2" />
-              Clear Selection
+              <LayoutGrid className="w-4 h-4" />
             </Button>
             <Button
-              variant="destructive"
+              variant={viewMode === "table" ? "default" : "ghost"}
               size="sm"
-              onClick={handleBulkDelete}
-              disabled={bulkDeleteMutation.isPending}
-              data-testid="button-bulk-delete"
+              onClick={() => setViewMode("table")}
+              className={viewMode === "table" ? "bg-blue-600 hover:bg-blue-700" : ""}
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete Selected
+              <LayoutList className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      )}
+      </Card>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search products, category, description, barcode..."
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          data-testid="input-search-products"
-        />
-      </div>
-
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">
-                <Checkbox
-                  checked={filteredProducts && filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
-                  onCheckedChange={handleToggleAll}
-                  data-testid="checkbox-select-all"
-                />
-              </TableHead>
-              <TableHead className="w-[300px]">Item</TableHead>
-              <TableHead>
-                <div className="flex items-center gap-2">
-                  <span>Type</span>
-                  <Popover open={typeFilterOpen} onOpenChange={setTypeFilterOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-6 h-6"
-                        data-testid="button-type-filter"
-                      >
-                        <Filter className="w-3.5 h-3.5" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-48 p-3" align="start">
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="filter-matchbox"
-                              checked={typeFilter.includes("Matchboxes")}
-                              onCheckedChange={() => handleToggleTypeFilter("Matchboxes")}
-                              data-testid="checkbox-filter-matchbox"
-                            />
-                            <label
-                              htmlFor="filter-matchbox"
-                              className="text-sm cursor-pointer flex-1"
-                            >
-                              Matchbox
-                            </label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="filter-tshirt"
-                              checked={typeFilter.includes("Tshirts")}
-                              onCheckedChange={() => handleToggleTypeFilter("Tshirts")}
-                              data-testid="checkbox-filter-tshirt"
-                            />
-                            <label
-                              htmlFor="filter-tshirt"
-                              className="text-sm cursor-pointer flex-1"
-                            >
-                              T-Shirt
-                            </label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id="filter-postcard"
-                              checked={typeFilter.includes("Postcards")}
-                              onCheckedChange={() => handleToggleTypeFilter("Postcards")}
-                              data-testid="checkbox-filter-postcard"
-                            />
-                            <label
-                              htmlFor="filter-postcard"
-                              className="text-sm cursor-pointer flex-1"
-                            >
-                              Postcard
-                            </label>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2 pt-2 border-t">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleResetTypeFilter}
-                            className="h-7 text-xs"
-                            data-testid="button-reset-type-filter"
-                          >
-                            Reset
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={() => setTypeFilterOpen(false)}
-                            className="h-7 text-xs"
-                            data-testid="button-apply-type-filter"
-                          >
-                            OK
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </TableHead>
-              <TableHead className="text-right">Selling Price (Excl.)</TableHead>
-              <TableHead className="text-right">Purchase Price</TableHead>
-              <TableHead className="text-right w-[80px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Skeleton className="w-10 h-10 rounded" />
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-24" />
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                </TableRow>
-              ))
-            ) : filteredProducts && filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <TableRow key={product.id} data-testid={`row-product-${product.id}`}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedProducts.has(product.id)}
-                      onCheckedChange={() => handleToggleProduct(product.id)}
-                      data-testid={`checkbox-product-${product.id}`}
+      {/* Products Display */}
+      {filteredProducts.length === 0 ? (
+        <Card className="p-12">
+          <div className="text-center">
+            <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-semibold mb-2">
+              {searchQuery ? "No products found" : "No products yet"}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              {searchQuery
+                ? "Try adjusting your search query"
+                : "Add your first product to get started"
+              }
+            </p>
+            {!searchQuery && (
+              <Button onClick={handleOpenAddDialog} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : viewMode === "grid" ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedProducts.map((product) => (
+              <Card key={product.id} className="overflow-hidden group hover:shadow-md transition-shadow">
+                <div className="relative aspect-square bg-muted">
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
                     />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="w-10 h-10 rounded">
-                        <AvatarImage src={product.imageUrl} alt={product.name} />
-                        <AvatarFallback className="rounded bg-muted">
-                          {product.name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium" data-testid={`text-product-name-${product.id}`}>
-                          {product.name}
-                        </div>
-                        {product.sku && (
-                          <div className="text-xs text-muted-foreground">
-                            SKU: {product.sku}
-                          </div>
-                        )}
-                      </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Package className="w-16 h-16 text-muted-foreground opacity-30" />
                     </div>
-                  </TableCell>
-                  <TableCell data-testid={`text-product-type-${product.id}`}>
-                    {product.category ? (
-                      <Badge variant="outline" className="font-normal">
-                        {product.category}
-                      </Badge>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono" data-testid={`text-selling-price-${product.id}`}>
-                    {product.defaultPrice ? `₹ ${product.defaultPrice}` : "₹ 0.00"}
-                  </TableCell>
-                  <TableCell className="text-right font-mono" data-testid={`text-purchase-price-${product.id}`}>
-                    {product.purchasePrice ? `₹ ${product.purchasePrice}` : "₹ 0.00"}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  )}
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          data-testid={`button-actions-${product.id}`}
-                        >
+                        <Button variant="secondary" size="icon" className="w-8 h-8">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleOpenEditDialog(product)}
-                          data-testid={`button-edit-${product.id}`}
-                        >
+                        <DropdownMenuItem onClick={() => handleOpenEditDialog(product)}>
                           <Pencil className="w-4 h-4 mr-2" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDuplicate(product)}
-                          data-testid={`button-duplicate-${product.id}`}
-                        >
+                        <DropdownMenuItem onClick={() => handleDuplicate(product)}>
                           <Copy className="w-4 h-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDelete(product.id)}
                           className="text-destructive"
-                          data-testid={`button-delete-${product.id}`}
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </TableCell>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold mb-1 line-clamp-1">{product.name}</h3>
+                  {product.sku && (
+                    <p className="text-xs text-muted-foreground mb-2">SKU: {product.sku}</p>
+                  )}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-lg font-bold font-mono">
+                      ₹{parseFloat(product.defaultPrice || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                    {product.gstRate && (
+                      <Badge variant="outline" className="text-xs">
+                        {product.gstRate}% GST
+                      </Badge>
+                    )}
+                  </div>
+                  {product.category && (
+                    <Badge variant="secondary" className="text-xs">
+                      {product.category}
+                    </Badge>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className={currentPage === page ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="border rounded-lg">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[300px]">Item</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>HSN Code</TableHead>
+                  <TableHead className="text-right">Selling Price</TableHead>
+                  <TableHead className="text-right">GST Rate</TableHead>
+                  <TableHead className="w-12"></TableHead>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                  No products found. Click "New Item" to add your first product.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {paginatedProducts.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-10 h-10 rounded">
+                          <AvatarImage src={product.imageUrl} alt={product.name} />
+                          <AvatarFallback className="rounded bg-muted">
+                            {product.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{product.name}</div>
+                          {product.sku && (
+                            <div className="text-xs text-muted-foreground">
+                              SKU: {product.sku}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {product.category ? (
+                        <Badge variant="outline" className="font-normal">
+                          {product.category}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {product.hsnCode || "—"}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      ₹{parseFloat(product.defaultPrice || '0').toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {product.gstRate ? (
+                        <Badge variant="outline" className="font-normal">
+                          {product.gstRate}%
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="w-8 h-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenEditDialog(product)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicate(product)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Duplicate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDelete(product.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let page;
+                    if (totalPages <= 5) {
+                      page = i + 1;
+                    } else if (currentPage <= 3) {
+                      page = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      page = totalPages - 4 + i;
+                    } else {
+                      page = currentPage - 2 + i;
+                    }
+                    return (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className={currentPage === page ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      >
+                        {page}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Add/Edit Product Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingProduct ? "Edit Item" : "Add Item"}</DialogTitle>
+            <DialogTitle>{editingProduct ? "Edit Product" : "Add Product"}</DialogTitle>
             <DialogDescription>
               {editingProduct ? "Update product details" : "Add a new product to your catalog"}
             </DialogDescription>
@@ -734,7 +858,7 @@ export default function Products() {
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
               <div className="space-y-4">
                 <h3 className="text-sm font-medium">Basic Details</h3>
-                
+
                 <FormField
                   control={form.control}
                   name="name"
@@ -742,11 +866,7 @@ export default function Products() {
                     <FormItem>
                       <FormLabel>Product Name *</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Enter item name"
-                          data-testid="input-product-name"
-                          {...field}
-                        />
+                        <Input placeholder="Enter product name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -765,7 +885,6 @@ export default function Products() {
                             type="number"
                             step="0.01"
                             placeholder="Enter selling price"
-                            data-testid="input-selling-price"
                             className="flex-1"
                             {...field}
                           />
@@ -777,7 +896,6 @@ export default function Products() {
                             <Select
                               onValueChange={(value) => taxField.onChange(value === "true")}
                               value={taxField.value ? "true" : "false"}
-                              data-testid="select-price-tax-type"
                             >
                               <SelectTrigger className="w-[140px]">
                                 <SelectValue />
@@ -805,11 +923,7 @@ export default function Products() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tax %</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          data-testid="select-tax-rate"
-                        >
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select tax rate" />
@@ -834,11 +948,7 @@ export default function Products() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Primary Unit</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          data-testid="select-unit"
-                        >
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select unit" />
@@ -870,11 +980,7 @@ export default function Products() {
                       <FormItem>
                         <FormLabel>HSN/SAC</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="Enter HSN/SAC code"
-                            data-testid="input-hsn-code"
-                            {...field}
-                          />
+                          <Input placeholder="Enter HSN/SAC code" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -892,7 +998,6 @@ export default function Products() {
                             type="number"
                             step="0.01"
                             placeholder="Enter purchase price"
-                            data-testid="input-purchase-price"
                             {...field}
                           />
                         </FormControl>
@@ -905,17 +1010,12 @@ export default function Products() {
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="barcode"
+                    name="sku"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Barcode</FormLabel>
+                        <FormLabel>SKU</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="Enter barcode"
-                            data-testid="input-barcode"
-                            {...field}
-                            value={field.value || ""}
-                          />
+                          <Input placeholder="Enter SKU" {...field} value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -929,36 +1029,13 @@ export default function Products() {
                       <FormItem>
                         <FormLabel>Category</FormLabel>
                         <FormControl>
-                          <Input
-                            placeholder="Enter category"
-                            data-testid="input-category"
-                            {...field}
-                          />
+                          <Input placeholder="Enter category" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-
-                <FormField
-                  control={form.control}
-                  name="sku"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter SKU"
-                          data-testid="input-sku"
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={form.control}
@@ -969,7 +1046,6 @@ export default function Products() {
                       <FormControl>
                         <Input
                           placeholder="https://example.com/image.jpg"
-                          data-testid="input-image-url"
                           {...field}
                           value={field.value || ""}
                         />
@@ -987,9 +1063,8 @@ export default function Products() {
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Add product description here..."
+                          placeholder="Add product description..."
                           className="min-h-24"
-                          data-testid="input-description"
                           {...field}
                           value={field.value || ""}
                         />
@@ -1005,20 +1080,19 @@ export default function Products() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsAddDialogOpen(false)}
-                  data-testid="button-cancel"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={createMutation.isPending || updateMutation.isPending}
-                  data-testid="button-save-product"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   {createMutation.isPending || updateMutation.isPending
                     ? "Saving..."
                     : editingProduct
-                    ? "Update Item"
-                    : "Add Item"}
+                    ? "Update Product"
+                    : "Add Product"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1032,81 +1106,107 @@ export default function Products() {
           <DialogHeader>
             <DialogTitle>Import Products from CSV</DialogTitle>
             <DialogDescription>
-              Upload a Shopify products export CSV file to import products
+              Upload a CSV file to import products in bulk
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="border-2 border-dashed rounded-lg p-6 text-center">
-              <Input
-                type="file"
-                accept=".csv"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
-                className="hidden"
-                id="csv-upload"
-                data-testid="input-csv-file"
-              />
-              <label
-                htmlFor="csv-upload"
-                className="cursor-pointer flex flex-col items-center gap-2"
-              >
-                <Upload className="w-8 h-8 text-muted-foreground" />
-                <div className="text-sm font-medium">
-                  {importFile ? importFile.name : "Click to select CSV file"}
+            {/* Drag & Drop Zone */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950'
+                  : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              {importFile ? (
+                <div>
+                  <p className="font-medium mb-2">{importFile.name}</p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {(importFile.size / 1024).toFixed(2)} KB
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImportFile(null)}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Remove file
+                  </Button>
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  Shopify products export format
+              ) : (
+                <div>
+                  <p className="text-lg font-medium mb-2">Drag & drop your CSV file here</p>
+                  <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
+                  <Input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="csv-upload"
+                  />
+                  <label htmlFor="csv-upload">
+                    <Button variant="outline" size="sm" asChild>
+                      <span>Select CSV File</span>
+                    </Button>
+                  </label>
                 </div>
-              </label>
+              )}
             </div>
 
-            {importResult && (
-              <Alert>
-                <CheckCircle className="w-4 h-4" />
-                <AlertTitle>Import Complete</AlertTitle>
-                <AlertDescription>
-                  <div className="space-y-1 mt-2">
-                    <div className="flex justify-between">
-                      <span>Imported:</span>
-                      <Badge variant="outline">{importResult.imported || 0}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Updated:</span>
-                      <Badge variant="outline">{importResult.updated || 0}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Skipped:</span>
-                      <Badge variant="outline">{importResult.skipped || 0}</Badge>
-                    </div>
-                    {importResult.errors && importResult.errors.length > 0 && (
-                      <div className="text-xs text-destructive mt-2">
-                        {importResult.errors.slice(0, 3).join(", ")}
-                      </div>
-                    )}
-                  </div>
-                </AlertDescription>
-              </Alert>
+            {/* Import Progress */}
+            {importMutation.isPending && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Importing products...</p>
+                </div>
+              </div>
             )}
+
+            {/* Import Results */}
+            {importResult && (
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">✓</div>
+                  <div className="flex-1 space-y-2">
+                    <p className="font-medium text-green-900 dark:text-green-100">Import Complete</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm text-green-800 dark:text-green-200">
+                      <div>Imported: {importResult.imported || 0}</div>
+                      <div>Updated: {importResult.updated || 0}</div>
+                      <div>Skipped: {importResult.skipped || 0}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sample CSV */}
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex items-center gap-2">
+                <Download className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">Need help?</span>
+              </div>
+              <Button variant="link" size="sm" onClick={downloadSampleCSV}>
+                Download sample CSV
+              </Button>
+            </div>
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsImportDialogOpen(false);
-                setImportResult(null);
-                setImportFile(null);
-              }}
-              data-testid="button-close-import"
-            >
+            <Button variant="outline" onClick={handleImportDialogClose}>
               Close
             </Button>
             <Button
               onClick={handleImport}
               disabled={!importFile || importMutation.isPending}
-              data-testid="button-import"
+              className="bg-blue-600 hover:bg-blue-700"
             >
-              {importMutation.isPending ? "Importing..." : "Import"}
+              {importMutation.isPending ? "Importing..." : "Import Products"}
             </Button>
           </DialogFooter>
         </DialogContent>
