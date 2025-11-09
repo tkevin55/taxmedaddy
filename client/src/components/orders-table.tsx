@@ -1,4 +1,4 @@
-import { MoreVertical, FileText, ExternalLink, Check, Eye } from "lucide-react";
+import { MoreVertical, FileText, ExternalLink, Check, Eye, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,12 +29,18 @@ interface Order {
   invoiceNumber?: string;
 }
 
+type SortField = 'date' | 'customer' | 'amount' | 'orderNumber';
+type SortDirection = 'asc' | 'desc';
+
 interface OrdersTableProps {
   orders: Order[];
   onSelectOrder?: (orderId: string, selected: boolean) => void;
   selectedOrders?: string[];
   onGenerateInvoice?: (orderId: string) => void;
   onViewDetails?: (orderId: string) => void;
+  sortField?: SortField;
+  sortDirection?: SortDirection;
+  onSort?: (field: SortField) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -50,7 +56,7 @@ const statusColors: Record<string, string> = {
   uninvoiced: 'bg-muted text-muted-foreground',
 };
 
-export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice, onViewDetails }: OrdersTableProps) {
+export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGenerateInvoice, onViewDetails, sortField, sortDirection, onSort }: OrdersTableProps) {
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       const allIds = orders.map(o => o.id);
@@ -62,6 +68,15 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGene
 
   const handleSelect = (orderId: string, checked: boolean) => {
     onSelectOrder?.(orderId, checked);
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="ml-1 h-3 w-3" />
+      : <ArrowDown className="ml-1 h-3 w-3" />;
   };
 
   return (
@@ -76,10 +91,46 @@ export function OrdersTable({ orders, onSelectOrder, selectedOrders = [], onGene
                 data-testid="checkbox-select-all"
               />
             </TableHead>
-            <TableHead className="font-medium">Order #</TableHead>
-            <TableHead className="font-medium">Date</TableHead>
-            <TableHead className="font-medium">Customer</TableHead>
-            <TableHead className="font-medium">Amount</TableHead>
+            <TableHead 
+              className="font-medium cursor-pointer hover-elevate select-none"
+              onClick={() => onSort?.('orderNumber')}
+              data-testid="header-order-number"
+            >
+              <div className="flex items-center">
+                Order #
+                <SortIcon field="orderNumber" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="font-medium cursor-pointer hover-elevate select-none"
+              onClick={() => onSort?.('date')}
+              data-testid="header-date"
+            >
+              <div className="flex items-center">
+                Date
+                <SortIcon field="date" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="font-medium cursor-pointer hover-elevate select-none"
+              onClick={() => onSort?.('customer')}
+              data-testid="header-customer"
+            >
+              <div className="flex items-center">
+                Customer
+                <SortIcon field="customer" />
+              </div>
+            </TableHead>
+            <TableHead 
+              className="font-medium cursor-pointer hover-elevate select-none"
+              onClick={() => onSort?.('amount')}
+              data-testid="header-amount"
+            >
+              <div className="flex items-center">
+                Amount
+                <SortIcon field="amount" />
+              </div>
+            </TableHead>
             <TableHead className="font-medium">Payment</TableHead>
             <TableHead className="font-medium">Fulfillment</TableHead>
             <TableHead className="font-medium">Invoice</TableHead>

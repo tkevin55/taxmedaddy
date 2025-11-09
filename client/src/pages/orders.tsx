@@ -76,6 +76,9 @@ type Entity = {
   gstin?: string;
 };
 
+type SortField = 'date' | 'customer' | 'amount' | 'orderNumber';
+type SortDirection = 'asc' | 'desc';
+
 export default function Orders() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -86,6 +89,8 @@ export default function Orders() {
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
   const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
@@ -346,6 +351,15 @@ export default function Orders() {
     bulkGenerateInvoicesMutation.mutate({ orderIds: selectedOrders, entityId });
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
   const orders = ordersData?.map(order => {
     // Map backend payment status directly - don't collapse values
     const paymentStatus = (order.paymentStatus || 'unpaid') as 'paid' | 'pending' | 'partial' | 'refunded' | 'unpaid';
@@ -354,14 +368,37 @@ export default function Orders() {
       id: order.id.toString(),
       orderNumber: order.shopifyOrderNumber,
       date: new Date(order.orderDate).toLocaleDateString(),
+      dateValue: new Date(order.orderDate).getTime(),
       customer: order.customerName,
       amount: `₹${parseFloat(order.total).toFixed(2)}`,
+      amountValue: parseFloat(order.total),
       paymentStatus,
       fulfillmentStatus: 'fulfilled' as const, // Placeholder - backend doesn't track this field
       invoiceStatus: order.hasInvoice ? 'invoiced' as const : 'uninvoiced' as const,
       invoiceNumber: order.invoiceNumber,
     };
   }) || [];
+
+  const sortedOrders = [...orders].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'date':
+        comparison = a.dateValue - b.dateValue;
+        break;
+      case 'customer':
+        comparison = a.customer.localeCompare(b.customer);
+        break;
+      case 'amount':
+        comparison = a.amountValue - b.amountValue;
+        break;
+      case 'orderNumber':
+        comparison = a.orderNumber.localeCompare(b.orderNumber);
+        break;
+    }
+    
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
 
   const handleSelectOrder = (orderId: string, selected: boolean) => {
     if (selected) {
@@ -437,11 +474,14 @@ export default function Orders() {
             </div>
           ) : (
             <OrdersTable
-              orders={orders}
+              orders={sortedOrders}
               onSelectOrder={handleSelectOrder}
               selectedOrders={selectedOrders}
               onGenerateInvoice={handleGenerateInvoice}
               onViewDetails={handleViewDetails}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSort}
             />
           )}
 
