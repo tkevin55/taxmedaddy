@@ -68,6 +68,7 @@ type Product = {
   description?: string;
   defaultPrice?: string;
   purchasePrice?: string;
+  priceIncludesTax?: boolean;
   hsnCode?: string;
   gstRate?: string;
   unit?: string;
@@ -122,6 +123,7 @@ export default function Products() {
       description: "",
       defaultPrice: "",
       purchasePrice: "",
+      priceIncludesTax: false,
       hsnCode: "",
       gstRate: "",
       unit: "",
@@ -331,6 +333,7 @@ export default function Products() {
       description: product.description || "",
       defaultPrice: product.defaultPrice || "",
       purchasePrice: product.purchasePrice || "",
+      priceIncludesTax: product.priceIncludesTax || false,
       hsnCode: product.hsnCode || "",
       gstRate: product.gstRate || "",
       unit: product.unit || "",
@@ -741,27 +744,52 @@ export default function Products() {
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="defaultPrice"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Selling Price (Excl. Tax)</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="defaultPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Selling Price</FormLabel>
+                      <div className="flex gap-2">
                         <FormControl>
                           <Input
                             type="number"
                             step="0.01"
                             placeholder="Enter selling price"
                             data-testid="input-selling-price"
+                            className="flex-1"
                             {...field}
                           />
                         </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                        <FormField
+                          control={form.control}
+                          name="priceIncludesTax"
+                          render={({ field: taxField }) => (
+                            <Select
+                              onValueChange={(value) => taxField.onChange(value === "true")}
+                              value={taxField.value ? "true" : "false"}
+                              data-testid="select-price-tax-type"
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="true">with Tax</SelectItem>
+                                <SelectItem value="false">without Tax</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {form.watch("priceIncludesTax") ? "Inclusive of Taxes" : "Exclusive of Taxes"}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="gstRate"
@@ -790,36 +818,36 @@ export default function Products() {
                       </FormItem>
                     )}
                   />
-                </div>
 
-                <FormField
-                  control={form.control}
-                  name="unit"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Primary Unit</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        data-testid="select-unit"
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {UNITS.map((unit) => (
-                            <SelectItem key={unit} value={unit}>
-                              {unit}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="unit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary Unit</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          data-testid="select-unit"
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select unit" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {UNITS.map((unit) => (
+                              <SelectItem key={unit} value={unit}>
+                                {unit}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">

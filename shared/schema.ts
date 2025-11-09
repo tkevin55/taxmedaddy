@@ -106,6 +106,7 @@ export const products = pgTable("products", {
   description: text("description"),
   defaultPrice: decimal("default_price", { precision: 12, scale: 2 }),
   purchasePrice: decimal("purchase_price", { precision: 12, scale: 2 }),
+  priceIncludesTax: boolean("price_includes_tax").default(false),
   hsnCode: text("hsn_code"),
   gstRate: decimal("gst_rate", { precision: 5, scale: 2 }),
   unit: text("unit"),
