@@ -403,6 +403,89 @@ export default function InvoiceCreate() {
     }
   }, [orderData]);
 
+  useEffect(() => {
+    if (existingInvoice) {
+      console.log('Populating form from existing invoice...');
+      
+      const invoiceItems = existingInvoice.items?.map((item: any, index: number) => ({
+        id: String(index + 1),
+        description: item.description || '',
+        details: item.details || '',
+        hsn: item.hsnCode || '',
+        quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1'),
+        unit: item.unit || 'UNT',
+        rate: typeof item.rate === 'number' ? item.rate : parseFloat(item.rate || '0'),
+        discount: typeof item.discount === 'number' ? item.discount : parseFloat(item.discount || '0'),
+        gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
+        taxableValue: typeof item.taxableValue === 'number' ? item.taxableValue : parseFloat(item.taxableValue || '0'),
+        cgst: typeof item.cgst === 'number' ? item.cgst : parseFloat(item.cgst || '0'),
+        sgst: typeof item.sgst === 'number' ? item.sgst : parseFloat(item.sgst || '0'),
+        igst: typeof item.igst === 'number' ? item.igst : parseFloat(item.igst || '0'),
+        total: typeof item.total === 'number' ? item.total : parseFloat(item.total || '0'),
+      })) || [{
+        id: '1',
+        description: '',
+        details: '',
+        hsn: '',
+        quantity: 1,
+        unit: 'UNT',
+        rate: 0,
+        discount: 0,
+        gstRate: 5,
+        taxableValue: 0,
+        cgst: 0,
+        sgst: 0,
+        igst: 0,
+        total: 0,
+      }];
+
+      setInvoiceData({
+        invoiceNumber: existingInvoice.invoiceNumber || 'DRAFT',
+        date: existingInvoice.date || new Date().toISOString().split('T')[0],
+        reference: existingInvoice.reference || '',
+        supplier: {
+          name: existingInvoice.entity?.legalName || existingInvoice.supplierName || '',
+          gstin: existingInvoice.entity?.gstin || existingInvoice.supplierGstin || '',
+          address: existingInvoice.entity?.address || existingInvoice.supplierAddress || '',
+          city: existingInvoice.entity?.city || '',
+          state: existingInvoice.entity?.state || existingInvoice.supplierState || '',
+          pincode: existingInvoice.entity?.pincode || '',
+          phone: existingInvoice.entity?.phone || '',
+          email: existingInvoice.entity?.email || '',
+        },
+        buyer: {
+          name: existingInvoice.buyerName || '',
+          company: existingInvoice.buyerCompany || '',
+          gstin: existingInvoice.buyerGstin || '',
+          phone: existingInvoice.buyerPhone || '',
+          email: existingInvoice.buyerEmail || '',
+          billingAddress: existingInvoice.billingAddress || '',
+          shippingAddress: existingInvoice.shippingAddress || '',
+          billingState: existingInvoice.billingState || '',
+          shippingState: existingInvoice.shippingState || '',
+        },
+        placeOfSupply: existingInvoice.placeOfSupply || '',
+        items: invoiceItems,
+        discount: typeof existingInvoice.discount === 'number' ? existingInvoice.discount : parseFloat(existingInvoice.discount || '0'),
+        customHeaders: {
+          vehicleNo: existingInvoice.vehicleNo || '',
+          poNumber: existingInvoice.poNumber || '',
+          challanNo: existingInvoice.challanNo || '',
+          deliveryDate: existingInvoice.deliveryDate || '',
+          salesPerson: existingInvoice.salesPerson || '',
+          ewayBillNo: existingInvoice.ewayBillNo || '',
+        },
+      });
+      
+      if (existingInvoice.bankId) {
+        setSelectedBankId(String(existingInvoice.bankId));
+      }
+      if (existingInvoice.signatureId) {
+        setSelectedSignatureId(String(existingInvoice.signatureId));
+      }
+    }
+  }, [existingInvoice]);
+
   const calculateTotals = () => {
     const itemTotals = invoiceData.items.reduce(
       (acc, item) => ({
