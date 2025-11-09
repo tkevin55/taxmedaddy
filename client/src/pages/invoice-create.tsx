@@ -39,6 +39,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Order = {
   id: number;
@@ -188,6 +196,15 @@ export default function InvoiceCreate() {
   const [showDescription, setShowDescription] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [globalDiscountPercent, setGlobalDiscountPercent] = useState<string>("");
+  const [showAdditionalCharges, setShowAdditionalCharges] = useState(false);
+  const [additionalCharges, setAdditionalCharges] = useState<Array<{
+    name: string;
+    tax: number;
+    percent: number;
+    withoutTax: number;
+    withTax: number;
+  }>>([]);
   const [markAsPaid, setMarkAsPaid] = useState(false);
   const [reverseCharge, setReverseCharge] = useState(false);
   const [createEWaybill, setCreateEWaybill] = useState(false);
@@ -320,6 +337,33 @@ export default function InvoiceCreate() {
         prev.supplier.state
       );
       return { ...prev, items: newItems };
+    });
+  };
+
+  const applyGlobalDiscount = () => {
+    const discountValue = parseFloat(globalDiscountPercent) || 0;
+    if (discountValue < 0 || discountValue > 100) {
+      toast({
+        title: "Invalid discount",
+        description: "Discount must be between 0 and 100%",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setInvoiceData(prev => ({
+      ...prev,
+      items: prev.items.map(item => recalculateItem(
+        { ...item, discount: discountValue },
+        prev.placeOfSupply,
+        prev.buyer.billingState,
+        prev.supplier.state
+      )),
+    }));
+
+    toast({
+      title: "Discount applied",
+      description: `${discountValue}% discount applied to all items`,
     });
   };
 
@@ -1390,11 +1434,32 @@ export default function InvoiceCreate() {
                       type="number"
                       placeholder="0"
                       className="w-20 h-8 font-mono text-sm"
+                      value={globalDiscountPercent}
+                      onChange={(e) => setGlobalDiscountPercent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          applyGlobalDiscount();
+                        }
+                      }}
                       data-testid="input-global-discount"
                     />
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={applyGlobalDiscount}
+                      className="h-8 px-2"
+                      data-testid="button-apply-global-discount"
+                    >
+                      Apply
+                    </Button>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" data-testid="button-additional-charges">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowAdditionalCharges(true)}
+                  data-testid="button-additional-charges"
+                >
                   Additional Charges
                 </Button>
               </div>
@@ -1680,6 +1745,158 @@ export default function InvoiceCreate() {
           </div>
         )}
       </div>
+
+      <Dialog open={showAdditionalCharges} onOpenChange={setShowAdditionalCharges}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Additional Charges</DialogTitle>
+            <DialogDescription>
+              Add shipping charges, packaging fees, or other additional charges to the invoice
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/50 border-b">
+                <div className="grid grid-cols-12 gap-2 p-2 text-xs font-medium">
+                  <div className="col-span-4"></div>
+                  <div className="col-span-2 text-center">Tax</div>
+                  <div className="col-span-2 text-center">in (%)</div>
+                  <div className="col-span-2 text-center">withoutTax in (₹)</div>
+                  <div className="col-span-2 text-center">withTax in (₹)</div>
+                </div>
+              </div>
+              
+              <div className="divide-y">
+                {additionalCharges.map((charge, index) => (
+                  <div key={index} className="grid grid-cols-12 gap-2 p-2 items-center">
+                    <div className="col-span-4 flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-6 h-6 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setAdditionalCharges(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        data-testid={`button-remove-charge-${index}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        placeholder="Charge name"
+                        value={charge.name}
+                        onChange={(e) => {
+                          setAdditionalCharges(prev => {
+                            const newCharges = [...prev];
+                            newCharges[index] = { ...newCharges[index], name: e.target.value };
+                            return newCharges;
+                          });
+                        }}
+                        className="h-8 text-sm"
+                        data-testid={`input-charge-name-${index}`}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={charge.tax || ''}
+                        onChange={(e) => {
+                          const tax = parseFloat(e.target.value) || 0;
+                          setAdditionalCharges(prev => {
+                            const newCharges = [...prev];
+                            newCharges[index] = { ...newCharges[index], tax };
+                            return newCharges;
+                          });
+                        }}
+                        className="h-8 font-mono text-sm text-center"
+                        data-testid={`input-charge-tax-${index}`}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={charge.percent || ''}
+                        onChange={(e) => {
+                          const percent = parseFloat(e.target.value) || 0;
+                          setAdditionalCharges(prev => {
+                            const newCharges = [...prev];
+                            newCharges[index] = { ...newCharges[index], percent };
+                            return newCharges;
+                          });
+                        }}
+                        className="h-8 font-mono text-sm text-center"
+                        data-testid={`input-charge-percent-${index}`}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={charge.withoutTax || ''}
+                        onChange={(e) => {
+                          const withoutTax = parseFloat(e.target.value) || 0;
+                          const withTax = withoutTax * (1 + charge.tax / 100);
+                          setAdditionalCharges(prev => {
+                            const newCharges = [...prev];
+                            newCharges[index] = { ...newCharges[index], withoutTax, withTax };
+                            return newCharges;
+                          });
+                        }}
+                        className="h-8 font-mono text-sm text-center"
+                        data-testid={`input-charge-without-tax-${index}`}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={charge.withTax || ''}
+                        onChange={(e) => {
+                          const withTax = parseFloat(e.target.value) || 0;
+                          const withoutTax = withTax / (1 + charge.tax / 100);
+                          setAdditionalCharges(prev => {
+                            const newCharges = [...prev];
+                            newCharges[index] = { ...newCharges[index], withoutTax, withTax };
+                            return newCharges;
+                          });
+                        }}
+                        className="h-8 font-mono text-sm text-center"
+                        data-testid={`input-charge-with-tax-${index}`}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setAdditionalCharges(prev => [
+                  ...prev,
+                  { name: 'Shipping Charge (+)', tax: 0, percent: 0, withoutTax: 0, withTax: 0 }
+                ]);
+              }}
+              data-testid="button-add-charge"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Additional Charge
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdditionalCharges(false)} data-testid="button-cancel-charges">
+              Cancel
+            </Button>
+            <Button onClick={() => setShowAdditionalCharges(false)} data-testid="button-save-charges">
+              Save Charges
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
