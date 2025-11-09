@@ -298,8 +298,8 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-muted-foreground text-sm mt-1">Manage your business profile and preferences</p>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-muted-foreground mt-1">Manage your business profile and preferences</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -563,10 +563,11 @@ export default function Settings() {
                     )}
                   />
                   <div className="pt-4">
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       data-testid="button-save-business"
                       disabled={saveEntityMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
                       {saveEntityMutation.isPending ? "Saving..." : "Save Changes"}
                     </Button>
@@ -667,10 +668,11 @@ export default function Settings() {
                     />
                   </div>
                   <div className="pt-4">
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       data-testid="button-save-bank"
                       disabled={saveBankMutation.isPending}
+                      className="bg-blue-600 hover:bg-blue-700"
                     >
                       {saveBankMutation.isPending ? "Saving..." : "Save Changes"}
                     </Button>
@@ -763,7 +765,9 @@ export default function Settings() {
                 <Switch defaultChecked data-testid="switch-reset-annually" />
               </div>
               <div className="pt-4">
-                <Button data-testid="button-save-invoicing">Save Changes</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-invoicing">
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -796,7 +800,9 @@ export default function Settings() {
                 </div>
               </div>
               <div className="pt-4">
-                <Button data-testid="button-save-defaults">Save Changes</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-defaults">
+                  Save Changes
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -903,7 +909,9 @@ export default function Settings() {
                 <Switch data-testid="switch-notify-payments" />
               </div>
               <div className="pt-4">
-                <Button data-testid="button-save-notifications">Save Preferences</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-notifications">
+                  Save Preferences
+                </Button>
               </div>
             </CardContent>
           </Card>
