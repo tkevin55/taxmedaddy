@@ -79,10 +79,19 @@ export default function InvoiceCreate() {
   const { toast } = useToast();
   const urlParams = new URLSearchParams(window.location.search);
   const orderId = urlParams.get('orderId');
+  
+  const invoiceIdMatch = location.match(/\/invoices\/(\d+)\/edit/);
+  const invoiceId = invoiceIdMatch ? invoiceIdMatch[1] : null;
+  const isEditMode = !!invoiceId;
 
   const { data: orderData, isLoading: orderLoading } = useQuery<Order>({
     queryKey: ["/api/orders", orderId],
-    enabled: !!orderId,
+    enabled: !!orderId && !isEditMode,
+  });
+
+  const { data: existingInvoice, isLoading: invoiceLoading } = useQuery<any>({
+    queryKey: ["/api/invoices", invoiceId],
+    enabled: isEditMode,
   });
 
   const { data: products = [] } = useQuery<Product[]>({

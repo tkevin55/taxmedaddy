@@ -42,6 +42,7 @@ function ProtectedRouter() {
       <Route path="/products" component={Products} />
       <Route path="/invoices" component={Invoices} />
       <Route path="/invoices/new" component={InvoiceCreate} />
+      <Route path="/invoices/:id/edit" component={InvoiceCreate} />
       <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>

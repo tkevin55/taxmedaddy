@@ -5,7 +5,7 @@ import { InvoicesTable } from "@/components/invoices-table";
 import { FilterPanel } from "@/components/filter-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
 type Invoice = {
@@ -28,6 +28,7 @@ type Invoice = {
 export default function Invoices() {
   const [showFilters, setShowFilters] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: invoicesData, isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -68,6 +69,10 @@ export default function Invoices() {
           variant: "destructive",
         });
       });
+  };
+
+  const handleEdit = (invoiceId: string) => {
+    navigate(`/invoices/${invoiceId}/edit`);
   };
 
   const invoices = invoicesData?.map(invoice => {
@@ -160,7 +165,7 @@ export default function Invoices() {
               No invoices found. Generate invoices from your orders to get started.
             </div>
           ) : (
-            <InvoicesTable invoices={invoices} onDownloadPDF={handleDownloadPDF} />
+            <InvoicesTable invoices={invoices} onDownloadPDF={handleDownloadPDF} onEdit={handleEdit} />
           )}
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
