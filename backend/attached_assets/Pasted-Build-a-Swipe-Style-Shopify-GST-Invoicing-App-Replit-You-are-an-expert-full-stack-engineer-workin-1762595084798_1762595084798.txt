@@ -1,0 +1,524 @@
+Build a Swipe-Style Shopify GST Invoicing App (Replit)
+
+You are an expert full-stack engineer working inside Replit.
+Build a production-ready invoicing app for India with a UI & workflow similar to the provided “Create Invoice” screenshot and PDF.
+
+1. Tech Stack (Replit-Friendly)
+
+Use:
+
+Backend: Node.js + Express
+
+DB: SQLite (via Prisma or knex) so it runs easily on Replit
+
+Frontend: React + TypeScript + TailwindCSS (single-page app)
+
+Auth: Email/password (JWT-based sessions)
+
+PDF: HTML → PDF (e.g. puppeteer or pdf-lib from a server-side template)
+
+All code must run in a single Replit project with npm install and npm start.
+
+2. Core Requirements
+2.1 Multi-tenant by Account
+
+Support multiple businesses (e.g. Maachis, others later).
+
+Every user belongs to an Account.
+
+Data isolation: all Orders, Products, Invoices, Banks, Signatures scoped by account_id.
+
+User roles (simple):
+
+ADMIN: manage everything (entities, banks, signatures).
+
+STAFF: create invoices, manage orders.
+
+VIEWER: read-only.
+
+3. Data Model
+
+Implement these tables (Prisma-style schema or SQL):
+
+accounts
+
+id, name
+
+users
+
+id, account_id, name, email, password_hash, role
+
+entities (GST profiles / branches)
+
+id, account_id
+
+display_name, legal_name
+
+gstin, pan
+
+address_line1/2, city, state, state_code, pincode
+
+phone, email, website
+
+invoice_prefix
+
+current_invoice_number
+
+bank_default_id (nullable)
+
+signature_default_id (nullable)
+
+banks
+
+id, account_id, entity_id (nullable)
+
+label
+
+bank_name, account_number, ifsc, branch
+
+upi_id
+
+is_default (bool)
+
+signatures
+
+id, account_id, entity_id (nullable)
+
+label
+
+image_url
+
+products
+
+id, account_id
+
+shopify_product_id (nullable)
+
+name, sku
+
+description
+
+default_price
+
+hsn_code
+
+gst_rate
+
+orders
+
+id, account_id
+
+shopify_order_id (nullable), shopify_order_number (nullable)
+
+entity_id (nullable; default from mapping)
+
+order_date
+
+customer_name, customer_email, customer_phone
+
+billing_address, shipping_address
+
+shipping_state, shipping_state_code
+
+currency
+
+subtotal, discount_total, shipping_total, tax_total, total
+
+payment_status
+
+has_invoice (bool)
+
+invoice_id (nullable)
+
+raw_json (for reference)
+
+order_items
+
+id, order_id
+
+product_id (nullable)
+
+name, sku
+
+quantity
+
+unit_price
+
+discount
+
+hsn_code
+
+gst_rate
+
+invoices
+
+id, account_id, entity_id
+
+order_id (nullable)
+
+invoice_number
+
+invoice_date
+
+due_date
+
+reference
+
+type (regular/bill_of_supply/export/credit_note)
+
+buyer_name, buyer_company, buyer_email, buyer_phone
+
+billing_address, shipping_address
+
+buyer_gstin
+
+place_of_supply
+
+vehicle_no, po_number, challan_no, delivery_date, sales_person, dispatch_number
+
+is_reverse_charge (bool)
+
+notes, terms
+
+subtotal, discount_total
+
+total_cgst, total_sgst, total_igst, total_cess
+
+round_off
+
+grand_total
+
+total_items, total_qty
+
+bank_id (nullable)
+
+signature_id (nullable)
+
+payment_status (unpaid/partial/paid)
+
+is_draft (bool)
+
+pdf_url (nullable)
+
+created_by
+
+invoice_items
+
+id, invoice_id
+
+product_id (nullable)
+
+description
+
+hsn_code
+
+quantity
+
+unit
+
+rate
+
+price_includes_tax (bool)
+
+discount_percent
+
+taxable_value
+
+gst_rate
+
+cgst_amount, sgst_amount, igst_amount, cess_amount
+
+line_total
+
+payments (optional but useful)
+
+id, invoice_id
+
+amount
+
+mode
+
+notes
+
+utr_or_ref
+
+created_at
+
+4. Shopify Integration & Import
+4.1 Products
+
+Backend:
+
+/api/shopify/products/import
+
+Accept:
+
+Shopify API credentials (config) OR CSV upload (like products_export.csv).
+
+Pull products:
+
+id, title, variants (sku, price), etc.
+
+Map to products with default HSN + GST fields editable later.
+
+4.2 Orders
+
+/api/shopify/orders/import
+
+Similar: via API or uploaded orders_export.csv.
+
+Create orders + order_items with all fields.
+
+Store raw JSON/CSV row for debugging.
+
+5. Invoice Creation Flows
+5.1 From Imported Order (1-click)
+
+Orders page:
+
+List orders with filter; each row has “Create Invoice”.
+
+When clicked:
+
+If has_invoice true → open invoice.
+
+Else:
+
+Create a draft invoice:
+
+Prefill all customer and address fields from order.
+
+Choose entity based on mapping / default.
+
+Create invoice_items from order_items:
+
+Link matching products (by SKU if found).
+
+Pull HSN + GST from product.
+
+Auto-detect CGST+SGST vs IGST:
+
+Compare entity state_code vs shipping_state_code.
+
+Calculate taxes & totals.
+
+Redirect to Create Invoice screen with this draft.
+
+5.2 Manual Invoice
+
+“New Invoice” button:
+
+Opens same screen with empty draft.
+
+Allow searching & selecting products.
+
+6. Create Invoice Screen (Swipe-style)
+
+Recreate layout from screenshot:
+
+Top:
+
+Invoice type dropdown (Regular etc.)
+
+Dispatch From (entity address)
+
+Customer block:
+
+Search existing customers from past invoices/orders.
+
+Form fields: name, company, GSTIN, email, phone, billing, shipping.
+
+Other details:
+
+Invoice Date, Due Date, Reference.
+
+Custom headers:
+
+Toggle chips: Vehicle No, PO No, Challan No, Delivery Date, Sales Person, Dispatch No.
+
+When enabled, show relevant input.
+
+Products & services:
+
+Row with:
+
+Search product (by name/SKU).
+
+Qty, “Add to Bill”.
+
+Table:
+
+Product/Description, Qty, Unit, Rate, Price incl. tax, Discount%, HSN, GST%, Taxable, Tax, Line Total.
+
+“+ Add New Product” to create inline product.
+
+Bottom-left:
+
+Notes (text area)
+
+Terms & Conditions (select saved templates or custom)
+
+Toggles:
+
+Reverse Charge
+
+Attach files (up to 5)
+
+Bottom-right:
+
+Extra discount input (overall % or flat).
+
+Summary:
+
+Taxable Amount
+
+CGST/SGST/IGST
+
+Round off toggle
+
+Final Total
+
+Bank:
+
+Dropdown from banks table.
+
+“Add New Bank” opens modal → create/update bank.
+
+Payment:
+
+Add payment row(s), “Mark as fully paid”.
+
+Signature:
+
+Dropdown from signatures
+
+“Add New Signature” → upload image.
+
+Buttons (top & bottom):
+
+Save as Draft
+
+Save and Print
+
+Save
+
+(After save) WhatsApp icon → share invoice link/PDF.
+
+All calculations update live on the client.
+
+7. GST & Calculation Logic
+
+Implement reusable functions:
+
+Determine intra-state vs inter-state:
+
+If entity.state_code === place_of_supply_state_code → split GST into CGST + SGST.
+
+Else → IGST only.
+
+For each invoice item:
+
+If price includes tax:
+
+taxable = rate / (1 + gst_rate) * qty
+
+Else:
+
+taxable = (rate * qty) - discount
+
+Tax = taxable * gst_rate.
+
+Update totals:
+
+subtotal, total_cgst, total_sgst, total_igst, grand_total, round_off.
+
+Compute amount in words (INR).
+
+Make rates, HSN etc. editable per line.
+
+8. PDF Generation (Match Sample)
+
+When invoice is finalized (Save / Save & Print):
+
+Generate PDF server-side using an HTML template consistent with the uploaded sample: 
+
+INV-321_Sarah Abraham
+
+
+Include:
+
+Seller block (logo, name, GSTIN, address, contact)
+
+“TAX INVOICE” label
+
+Invoice #, date
+
+Customer details, billing & shipping, place of supply
+
+Line-item table with HSN, tax columns
+
+Taxable + tax summaries, total in words
+
+Selected bank details + UPI
+
+Selected signature image with “Authorized Signatory”
+
+“Powered by [app]” in footer
+
+Store file; set invoice.pdf_url.
+
+“Save and Print” opens PDF in new tab.
+
+9. Bank & Signature Management
+
+Banks page / modal
+
+CRUD for banks.
+
+Mark default.
+
+Used as dropdown in Create Invoice.
+
+Signatures page / modal
+
+Upload image, set label.
+
+CRUD.
+
+Choose per invoice.
+
+10. API & Frontend Endpoints (Summary)
+
+Implement REST endpoints such as:
+
+POST /api/auth/signup, /login
+
+GET /api/products, POST /api/products/import
+
+GET /api/orders, POST /api/orders/import
+
+POST /api/orders/:id/create-invoice
+
+GET /api/invoices, GET /api/invoices/:id
+
+POST /api/invoices (save draft/final)
+
+POST /api/invoices/:id/pdf
+
+POST /api/banks, PUT /api/banks/:id, DELETE /api/banks/:id
+
+POST /api/signatures, etc.
+
+Frontend should use these to drive all UI.
+
+Build the app end-to-end following this spec so that:
+
+I can import Shopify products & orders (via API or CSV).
+
+Click any imported order → land on Swipe-style Create Invoice with all fields pre-filled.
+
+Edit items, choose products, adjust GST/HSN.
+
+Select / edit banks & signatures.
+
+Save + download a PDF identical in structure to my current invoices.

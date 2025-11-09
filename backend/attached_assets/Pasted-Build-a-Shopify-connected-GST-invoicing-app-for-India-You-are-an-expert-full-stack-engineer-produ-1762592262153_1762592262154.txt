@@ -1,0 +1,487 @@
+Build a Shopify-connected GST invoicing app for India
+
+You are an expert full-stack engineer + product designer.
+Build a production-ready invoicing web app for Indian businesses that sell via Shopify, with full GST support and order import from Shopify.
+
+The app should:
+
+1. Core Purpose
+
+Connect to one or more Shopify stores.
+
+Import orders and let the user:
+
+Select specific orders.
+
+Generate GST-compliant tax invoices (and related documents) from those orders in 1–2 clicks.
+
+Work for:
+
+Small brands (1–2k orders/month) up to larger ones (1–2 lakh orders).
+
+Be optimized for Indian GST rules, without claiming to be a legal authority.
+
+Allow configuration so the user’s CA can tweak details.
+
+2. User Roles & Access
+
+Implement roles:
+
+Owner / Admin
+
+Manage business entities, GSTINs, invoice series, integrations, users, and global settings.
+
+Finance / Accounts
+
+Create/edit invoices, export data, generate reports, manage payments.
+
+Operations / Support
+
+View orders, generate invoices, download/share PDFs, but limited access to configuration.
+
+Read-only
+
+View invoices & reports; no edits.
+
+Role permissions must be configurable.
+
+3. Onboarding & Business Setup
+
+On first setup, guide the user through:
+
+Business Profile
+
+Legal name
+
+Trade name
+
+Address
+
+PAN
+
+GSTIN (with basic format validation)
+
+State & state code
+
+Place of supply default
+
+Contact details
+
+Logo upload
+
+Bank details for invoice footer (A/c no, IFSC, UPI ID, etc.)
+
+Multiple Entities / Branches
+
+Support multiple GST registrations under the same account.
+
+Each entity has its own:
+
+Address
+
+GSTIN
+
+Invoice prefix/series
+
+Place of supply
+
+User can map each Shopify store or location to a specific GST entity.
+
+Invoice Numbering Rules
+
+Configurable per entity:
+
+Prefix (e.g. MAA/24-25/)
+
+Numeric sequence with auto-increment
+
+Reset per financial year (April–March)
+
+Enforce uniqueness and prevent duplicate invoice numbers.
+
+4. Shopify Integration (Orders → Invoices)
+
+Connect to Shopify via API and support:
+
+Secure OAuth connection.
+
+Import:
+
+Order ID
+
+Order date & time
+
+Customer name, billing & shipping address, phone, email
+
+Line items (product name, SKU, price, quantity)
+
+Discounts, shipping charges, taxes
+
+Payment status & method
+
+Tags / notes / currency
+
+Support:
+
+Manual sync
+
+Automatic periodic sync (e.g., every 5–10 minutes).
+
+Only pull new/updated orders incrementally.
+
+Order Selection UI:
+
+Filters:
+
+Date range
+
+Payment status (Paid / Partially Paid / Pending / Refunded)
+
+Fulfillment status
+
+Tags (e.g., B2B, Export)
+
+Shopify store / location / mapped entity
+
+For each selected order:
+
+Show if invoice already exists.
+
+Allow single-click “Generate Invoice”.
+
+5. GST Logic & Compliance (Configurable)
+
+Design the data model and logic to support Indian GST requirements (Rule 46 of CGST Rules etc.). 
+CBIC GST
+
+For each invoice, support:
+
+Mandatory core fields:
+
+Supplier:
+
+Name, address, GSTIN, state & code.
+
+Recipient:
+
+Name
+
+Address
+
+State & code
+
+GSTIN/UIN (if B2B)
+
+Place of supply
+
+Invoice:
+
+Invoice number
+
+Invoice date
+
+Due date
+
+Reverse charge indicator (Y/N)
+
+Line item:
+
+Description of goods
+
+HSN code (configurable mappings from Shopify products)
+
+Quantity & unit
+
+Rate
+
+Taxable value
+
+GST rate
+
+Split: CGST, SGST/UTGST, IGST, CESS (if used)
+
+Totals:
+
+Itemized and grand totals
+
+Rounded total (with rounding logic config)
+
+Logic engine:
+
+Auto-decide CGST+SGST vs IGST based on:
+
+Supplier state vs place of supply.
+
+Handle:
+
+B2B vs B2C (based on presence of GSTIN + config).
+
+Export with/without payment of IGST.
+
+SEZ (configurable treatment).
+
+Composition dealer mode (no tax on invoice, special footer).
+
+Allow overrides where legally allowed; log all overrides.
+
+HSN & Tax Setup:
+
+Global and per-product HSN configuration.
+
+Default GST rates by product or collection.
+
+Ability to override during invoice generation with proper audit log.
+
+E-Invoicing Ready (Optional)
+
+Architect so that:
+
+For eligible users, app can integrate with govt-approved GSP APIs to generate IRN & QR code.
+
+Store IRN, Ack No, Ack Date, Signed QR in invoice record.
+
+For now, expose config + placeholders in schema/UI to plug this in later.
+
+6. Invoice Generation Flow
+
+For any selected Shopify order:
+
+Pre-fill invoice with:
+
+Customer details from Shopify.
+
+Line items, discounts, shipping.
+
+Mapped HSN and tax %.
+
+Correct entity & place of supply.
+
+Allow user to:
+
+Edit buyer details (e.g., add GSTIN, company name).
+
+Adjust HSN / tax rate / description (with permissions and log).
+
+Add notes:
+
+“Goods once sold…”
+
+Bank details
+
+Legal declarations
+
+One-click “Create Invoice”:
+
+Lock invoice number & date.
+
+Save immutable version (only credit note or revised invoice allowed later; no silent overwrites).
+
+Auto-link:
+
+Shopify Order ID ↔ Invoice No.
+
+Show invoice status next to each order.
+
+Bulk Actions:
+
+Bulk-generate invoices for:
+
+All “Paid” orders in a period.
+
+All “Uninvoiced” orders.
+
+Option to “Review before confirming” vs “Auto-confirm with default settings”.
+
+7. Documents to Support
+
+App must generate:
+
+Tax Invoice (standard GST invoice)
+
+Bill of Supply (for composition / exempt)
+
+Export Invoice
+
+Proforma Invoice
+
+Credit Note / Debit Note
+
+Link to original invoice.
+
+Update reports accordingly.
+
+Delivery Challan
+
+For stock transfers / job work, etc.
+
+Each document type:
+
+Has its own prefix/series rules.
+
+Is exportable as high-quality PDF (A4 & thermal formats).
+
+8. UI & UX Requirements
+
+Design a clean, fast UI:
+
+Dashboard
+
+Today’s invoices
+
+Uninvoiced paid orders
+
+GST summary (taxable value, CGST/SGST/IGST totals)
+
+Orders View
+
+Synced from Shopify, with invoice status.
+
+Invoices View
+
+Search by:
+
+Invoice no, order no, customer, GSTIN, date range, amount.
+
+Invoice Editor
+
+Real-time preview on the right.
+
+Form on the left.
+
+Templates
+
+At least 2–3 invoice themes:
+
+Minimal clean
+
+Branded with logo & accent color
+
+User can choose fonts, logo size, footer text.
+
+Support:
+
+Mobile-friendly viewing (for ops team).
+
+Keyboard shortcuts where relevant.
+
+Clear error messages (e.g., missing GSTIN for B2B).
+
+9. Exports, Integrations & Reporting
+
+Exports:
+
+Download & email PDFs.
+
+Export line-item and invoice-summary data as:
+
+CSV, XLSX.
+
+Pre-formatted exports that can be:
+
+Imported into Tally, Zoho Books, QuickBooks (via standard column mapping).
+
+Reports:
+
+Period-wise:
+
+B2B, B2C, Exports summary
+
+Tax-wise summary (HSN-wise, rate-wise)
+
+Credit note impact
+
+GSTR-friendly views (without claiming to be official filing):
+
+Outward supplies summary structure.
+
+Automation & Notifications:
+
+Configurable rules:
+
+Auto-generate invoice when Shopify order becomes “Paid”.
+
+Auto-email invoice PDF to customer.
+
+Auto-send to a finance email ID.
+
+Webhook support to notify external systems when invoice is created/updated.
+
+10. Payments & Reconciliation (Lightweight)
+
+Store payment mode (UPI, card, COD, etc.) from Shopify.
+
+Allow marking:
+
+Paid / Partially paid / Unpaid.
+
+Capture:
+
+Transaction ID
+
+Payment reference
+
+Optionally include UPI QR / bank details on invoices.
+
+No heavy accounting; just enough to reconcile order vs invoice vs payment.
+
+11. Security, Performance & Architecture
+
+Multi-tenant SaaS style:
+
+Each account’s data isolated.
+
+Sensitive data encrypted at rest.
+
+Use secure OAuth for Shopify.
+
+Handle large datasets:
+
+Pagination
+
+Background jobs for bulk imports
+
+Full audit log:
+
+Who created/edited which invoice, when.
+
+Old vs new values.
+
+12. Admin & Settings
+
+Provide a Settings area to configure:
+
+Business entities & GSTINs
+
+Shopify connections
+
+Invoice series & prefixes (per doc type)
+
+Default tax rates & HSN mappings
+
+Default footer / terms
+
+Auto-invoicing rules
+
+PDF template & branding
+
+Role-based access
+
+13. Output
+
+Deliver:
+
+A working web app (or fully specified no-code app) with:
+
+Data models
+
+Pages
+
+Workflows
+
+Shopify integration
+
+All critical flows wired:
+
+Connect Shopify → fetch orders → select → generate GST invoice → export/share.
+
+Clean, documented structure so a developer/CA in India can verify and extend
