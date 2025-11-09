@@ -191,6 +191,7 @@ export default function Products() {
         title: "Success",
         description: "Product updated successfully",
       });
+      setIsAddDialogOpen(false);
       setEditingProduct(null);
       form.reset();
     },
@@ -342,6 +343,14 @@ export default function Products() {
       imageUrl: product.imageUrl || "",
     });
     setIsAddDialogOpen(true);
+  };
+
+  const handleDialogChange = (open: boolean) => {
+    setIsAddDialogOpen(open);
+    if (!open) {
+      form.reset();
+      setEditingProduct(null);
+    }
   };
 
   const handleSubmit = (data: ProductFormValues) => {
@@ -712,7 +721,7 @@ export default function Products() {
       </div>
 
       {/* Add/Edit Product Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog open={isAddDialogOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingProduct ? "Edit Item" : "Add Item"}</DialogTitle>
