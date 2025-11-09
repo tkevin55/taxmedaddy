@@ -1110,274 +1110,291 @@ export default function InvoiceCreate() {
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-sm font-medium">Products & Services</CardTitle>
-                <Checkbox
-                  id="show-description"
-                  checked={showDescription}
-                  onCheckedChange={(checked) => setShowDescription(checked as boolean)}
-                  data-testid="checkbox-show-description"
-                />
-                <Label htmlFor="show-description" className="text-xs font-normal cursor-pointer">
-                  Show description
-                </Label>
               </div>
-              <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-product">
-                + Add new Product?
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="show-description"
+                    checked={showDescription}
+                    onCheckedChange={(checked) => setShowDescription(checked as boolean)}
+                    data-testid="checkbox-show-description"
+                  />
+                  <Label htmlFor="show-description" className="text-xs font-normal cursor-pointer">
+                    Show description
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="show-items-reverse"
+                    data-testid="checkbox-show-items-reverse"
+                  />
+                  <Label htmlFor="show-items-reverse" className="text-xs font-normal cursor-pointer">
+                    Show items in reverse order
+                  </Label>
+                </div>
+                <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-add-product">
+                  + Add new Product?
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={productSearchOpen}
-                    className="w-full justify-start text-left font-normal"
-                    data-testid="button-product-search"
-                  >
-                    <Search className="w-4 h-4 mr-2 text-muted-foreground" />
-                    <span className="text-muted-foreground">
-                      Search products by name, type, or price...
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[600px] p-0" align="start">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search products..."
-                      value={productSearchQuery}
-                      onValueChange={setProductSearchQuery}
-                      data-testid="input-product-search"
-                    />
-                    <CommandList>
-                      <CommandEmpty>No products found.</CommandEmpty>
-                      <CommandGroup>
-                        {filteredProducts.slice(0, 20).map((product) => (
-                          <CommandItem
-                            key={product.id}
-                            value={product.name}
-                            onSelect={() => handleSelectProduct(product, selectedLineItemIndex)}
-                            className="flex items-center justify-between gap-4"
-                            data-testid={`product-option-${product.id}`}
-                          >
-                            <div className="flex-1">
-                              <div className="font-medium">{product.name}</div>
-                              <div className="text-xs text-muted-foreground">
-                                {product.category && <span>{product.category}</span>}
-                                {product.sku && (
-                                  <span className="ml-2">SKU: {product.sku}</span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-sm font-mono">
-                              ₹ {product.defaultPrice || '0.00'}
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-
-              <div className="space-y-3">
-                {invoiceData.items.map((item, index) => (
-                  <div key={item.id} className="p-4 border rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Item {index + 1}</Label>
-                      {invoiceData.items.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="w-6 h-6"
-                          onClick={() => removeLineItem(item.id)}
-                          data-testid={`button-remove-item-${index}`}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label className="text-xs">Product Name</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Enter product name"
-                          value={item.description}
-                          onChange={(e) => updateItem(index, 'description', e.target.value)}
-                          data-testid={`input-product-name-${index}`}
-                          className="flex-1"
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Popover open={productSearchOpen} onOpenChange={setProductSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={productSearchOpen}
+                        className="w-full justify-start text-left font-normal"
+                        data-testid="button-product-search"
+                      >
+                        <Search className="w-4 h-4 mr-2 text-muted-foreground" />
+                        <span className="text-muted-foreground">
+                          Search or scan barcode for existing products
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[600px] p-0" align="start">
+                      <Command>
+                        <CommandInput
+                          placeholder="Search products..."
+                          value={productSearchQuery}
+                          onValueChange={setProductSearchQuery}
+                          data-testid="input-product-search"
                         />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            setSelectedLineItemIndex(index);
-                            setProductSearchOpen(true);
-                          }}
-                          data-testid={`button-search-product-${index}`}
-                        >
-                          <Search className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {showDescription && (
-                      <div className="space-y-2">
-                        <Label className="text-xs">Description</Label>
-                        <Textarea
-                          placeholder="Product description, specifications, materials, care instructions..."
-                          rows={3}
-                          value={item.details}
-                          onChange={(e) => updateItem(index, 'details', e.target.value)}
-                          data-testid={`input-description-${index}`}
-                        />
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs">Quantity</Label>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="font-mono"
-                          data-testid={`input-quantity-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Unit</Label>
-                        <Select
-                          value={item.unit}
-                          onValueChange={(v) => updateItem(index, 'unit', v)}
-                        >
-                          <SelectTrigger data-testid={`select-unit-${index}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="UNT">UNT</SelectItem>
-                            <SelectItem value="PCS">PCS</SelectItem>
-                            <SelectItem value="KG">KG</SelectItem>
-                            <SelectItem value="L">L</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">HSN</Label>
-                        <Input
-                          placeholder="HSN Code"
-                          className="font-mono"
-                          value={item.hsn}
-                          onChange={(e) => updateItem(index, 'hsn', e.target.value)}
-                          data-testid={`input-hsn-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Unit Price</Label>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
-                          className="font-mono"
-                          value={item.rate || ''}
-                          onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                          data-testid={`input-unit-price-${index}`}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="space-y-2">
-                        <Label className="text-xs">Taxable Value</Label>
-                        <Input
-                          value={`₹${item.taxableValue.toFixed(2)}`}
-                          disabled
-                          className="font-mono bg-muted"
-                          data-testid={`input-taxable-value-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Discount %</Label>
-                        <Input
-                          type="number"
-                          placeholder="0"
-                          className="font-mono"
-                          value={item.discount || ''}
-                          onChange={(e) => updateItem(index, 'discount', parseFloat(e.target.value) || 0)}
-                          data-testid={`input-discount-${index}`}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Tax Rate</Label>
-                        <Select
-                          value={String(item.gstRate)}
-                          onValueChange={(v) => updateItem(index, 'gstRate', parseInt(v))}
-                        >
-                          <SelectTrigger data-testid={`select-tax-rate-${index}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">0%</SelectItem>
-                            <SelectItem value="5">5%</SelectItem>
-                            <SelectItem value="12">12%</SelectItem>
-                            <SelectItem value="18">18%</SelectItem>
-                            <SelectItem value="28">28%</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs">Total Amount</Label>
-                        <Input
-                          value={`₹${item.total.toFixed(2)}`}
-                          disabled
-                          className="font-mono bg-muted"
-                          data-testid={`input-total-amount-${index}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={addLineItem}
-                  data-testid="button-add-line-item"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Item
+                        <CommandList>
+                          <CommandEmpty>No products found.</CommandEmpty>
+                          <CommandGroup>
+                            {filteredProducts.slice(0, 20).map((product) => (
+                              <CommandItem
+                                key={product.id}
+                                value={product.name}
+                                onSelect={() => handleSelectProduct(product, selectedLineItemIndex)}
+                                className="flex items-center justify-between gap-4"
+                                data-testid={`product-option-${product.id}`}
+                              >
+                                <div className="flex-1">
+                                  <div className="font-medium">{product.name}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {product.category && <span>{product.category}</span>}
+                                    {product.sku && (
+                                      <span className="ml-2">SKU: {product.sku}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-sm font-mono">
+                                  ₹ {product.defaultPrice || '0.00'}
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="w-24">
+                  <Input
+                    type="number"
+                    placeholder="Qty"
+                    className="font-mono"
+                    data-testid="input-quick-qty"
+                  />
+                </div>
+                <Button variant="default" data-testid="button-add-to-bill">
+                  + Add to Bill
                 </Button>
               </div>
 
-              <div className="pt-4 space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Items: 0, Qty: 0.000</span>
-                  <Button variant="ghost" size="sm" className="h-auto p-0 text-xs text-primary" data-testid="button-create-ai">
-                    + Create invoices with AI
-                  </Button>
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted/50 border-b">
+                  <div className="grid grid-cols-12 gap-2 p-2 text-xs font-medium">
+                    <div className="col-span-3">Product Name</div>
+                    <div className="col-span-2">Quantity</div>
+                    <div className="col-span-2">Unit Price</div>
+                    <div className="col-span-2">Price with Tax</div>
+                    <div className="col-span-2">Discount on Total Amount</div>
+                    <div className="col-span-1 text-right">Total<br/>Net Amount + Tax</div>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs">Apply discount(%) to all items?</Label>
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    className="w-32 font-mono"
-                    data-testid="input-global-discount"
-                  />
+                <div className="divide-y">
+                  {invoiceData.items.map((item, index) => (
+                    <div key={item.id}>
+                      <div className="grid grid-cols-12 gap-2 p-2 items-start bg-amber-50/30">
+                        <div className="col-span-3 space-y-1">
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <Input
+                                placeholder="Enter product name"
+                                value={item.description}
+                                onChange={(e) => updateItem(index, 'description', e.target.value)}
+                                data-testid={`input-product-name-${index}`}
+                                className="h-8 text-sm font-medium border-none shadow-none px-1 bg-transparent"
+                              />
+                              <div className="flex flex-col gap-1 px-1 mt-1">
+                                <div className="text-xs text-orange-600">
+                                  In Stock: -5.00 {item.unit}
+                                </div>
+                                <button 
+                                  className="text-xs text-blue-600 hover:underline text-left"
+                                  onClick={() => {
+                                    const newHsn = window.prompt('Enter HSN/SAC Code:', item.hsn);
+                                    if (newHsn !== null) updateItem(index, 'hsn', newHsn);
+                                  }}
+                                  data-testid={`button-hsn-${index}`}
+                                >
+                                  + HSN/SAC
+                                </button>
+                                <button 
+                                  className="text-xs text-blue-600 hover:underline text-left"
+                                  onClick={() => {
+                                    const newDesc = window.prompt('Enter Description:', item.details);
+                                    if (newDesc !== null) updateItem(index, 'details', newDesc);
+                                  }}
+                                  data-testid={`button-add-description-${index}`}
+                                >
+                                  + Add Description
+                                </button>
+                              </div>
+                            </div>
+                            {invoiceData.items.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="w-6 h-6 mt-1 text-destructive hover:text-destructive"
+                                onClick={() => removeLineItem(item.id)}
+                                data-testid={`button-remove-item-${index}`}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 flex gap-1">
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                            className="h-8 font-mono text-sm flex-1"
+                            data-testid={`input-quantity-${index}`}
+                          />
+                          <Select
+                            value={item.unit}
+                            onValueChange={(v) => updateItem(index, 'unit', v)}
+                          >
+                            <SelectTrigger className="h-8 w-20 text-sm" data-testid={`select-unit-${index}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="UNT">UNT</SelectItem>
+                              <SelectItem value="PCS">PCS</SelectItem>
+                              <SelectItem value="KG">KG</SelectItem>
+                              <SelectItem value="L">L</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="col-span-2">
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            className="h-8 font-mono text-sm"
+                            value={item.rate || ''}
+                            onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
+                            data-testid={`input-unit-price-${index}`}
+                          />
+                          <div className="text-xs text-muted-foreground px-1 mt-1">
+                            after disc: ₹{(item.rate * (1 - item.discount / 100)).toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2">
+                          <Input
+                            value={`₹${item.total.toFixed(2)}`}
+                            disabled
+                            className="h-8 font-mono text-sm bg-muted/50"
+                            data-testid={`input-price-with-tax-${index}`}
+                          />
+                          <div className="text-xs text-muted-foreground px-1 mt-1">
+                            after disc: ₹{(item.total * (1 - item.discount / 100)).toFixed(2)}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 flex gap-1">
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            className="h-8 font-mono text-sm flex-1"
+                            value={item.discount || ''}
+                            onChange={(e) => updateItem(index, 'discount', parseFloat(e.target.value) || 0)}
+                            data-testid={`input-discount-${index}`}
+                          />
+                          <Select value="percent">
+                            <SelectTrigger className="h-8 w-16 text-sm" data-testid={`select-discount-type-${index}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="percent">%</SelectItem>
+                              <SelectItem value="amount">₹</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="col-span-1">
+                          <div className="text-right">
+                            <div className="font-semibold text-sm">₹{item.total.toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {item.taxableValue.toFixed(2)} + {item.igst.toFixed(2)} ({item.gstRate}%)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {showDescription && item.details && (
+                        <div className="px-2 py-2 bg-muted/30 text-xs text-muted-foreground border-t">
+                          {item.details}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={addLineItem}
+                data-testid="button-add-line-item"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Item
+              </Button>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Items: {invoiceData.items.length}, Qty: {invoiceData.items.reduce((sum, item) => sum + item.quantity, 0).toFixed(3)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs">Apply discount(%) to all items</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      className="w-20 h-8 font-mono text-sm"
+                      data-testid="input-global-discount"
+                    />
+                  </div>
+                </div>
+                <Button variant="outline" size="sm" data-testid="button-additional-charges">
+                  Additional Charges
+                </Button>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-              <CardTitle className="text-sm font-medium">Additional Charges</CardTitle>
-              <Button variant="outline" size="sm" data-testid="button-add-charge">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Charge
-              </Button>
-            </CardHeader>
-          </Card>
 
           <Collapsible open={showNotes} onOpenChange={setShowNotes}>
             <Card>
