@@ -187,6 +187,7 @@ export default function InvoiceCreate() {
   const [showCustomHeaders, setShowCustomHeaders] = useState(false);
   const [showDescription, setShowDescription] = useState(true);
   const [showNotes, setShowNotes] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [markAsPaid, setMarkAsPaid] = useState(false);
   const [reverseCharge, setReverseCharge] = useState(false);
   const [createEWaybill, setCreateEWaybill] = useState(false);
@@ -779,6 +780,14 @@ export default function InvoiceCreate() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            variant={showPreview ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setShowPreview(!showPreview)}
+            data-testid="button-toggle-preview"
+          >
+            {showPreview ? 'Hide Preview' : 'Show Preview'}
+          </Button>
           <Button variant="ghost" size="icon" className="w-8 h-8" data-testid="button-custom-header">
             <Settings className="w-4 h-4" />
           </Button>
@@ -794,8 +803,8 @@ export default function InvoiceCreate() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-3 space-y-6">
+      <div className={`grid grid-cols-1 gap-6 ${showPreview ? 'lg:grid-cols-5' : ''}`}>
+        <div className={showPreview ? 'lg:col-span-3 space-y-6' : 'space-y-6'}>
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div className="flex items-center gap-4">
@@ -1657,20 +1666,22 @@ export default function InvoiceCreate() {
           </div>
         </div>
 
-        <div className="lg:col-span-2 sticky top-6 h-fit">
-          <div className="bg-muted p-4 rounded-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold">Preview</h2>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" data-testid="button-zoom-out">-</Button>
-                <Button variant="outline" size="sm" data-testid="button-zoom-in">+</Button>
+        {showPreview && (
+          <div className="lg:col-span-2 sticky top-6 h-fit">
+            <div className="bg-muted p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold">Preview</h2>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" data-testid="button-zoom-out">-</Button>
+                  <Button variant="outline" size="sm" data-testid="button-zoom-in">+</Button>
+                </div>
+              </div>
+              <div className="overflow-auto max-h-[calc(100vh-10rem)]">
+                <InvoicePreview data={previewData} />
               </div>
             </div>
-            <div className="overflow-auto max-h-[calc(100vh-10rem)]">
-              <InvoicePreview data={previewData} />
-            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
