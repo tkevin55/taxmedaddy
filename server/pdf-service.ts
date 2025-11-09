@@ -326,6 +326,7 @@ function generateInvoiceHTML(invoice: any): string {
         <th class="text-center">HSN</th>
         <th class="text-center">Qty</th>
         <th class="text-right">Rate</th>
+        <th class="text-right">Disc.</th>
         <th class="text-right">Taxable</th>
         <th class="text-center">GST%</th>
         <th class="text-right">IGST</th>
@@ -333,19 +334,23 @@ function generateInvoiceHTML(invoice: any): string {
       </tr>
     </thead>
     <tbody>
-      ${items.map((item: any, index: number) => `
+      ${items.map((item: any, index: number) => {
+        const discount = parseFloat(item.discount || item.discountPercent || '0');
+        return `
         <tr>
           <td class="text-center">${index + 1}</td>
           <td>${item.description}</td>
           <td class="text-center">${item.hsnCode || '-'}</td>
           <td class="text-center">${parseFloat(item.quantity || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.rate || '0').toFixed(2)}</td>
+          <td class="text-right">${discount > 0 ? `₹${discount.toFixed(2)}` : '-'}</td>
           <td class="text-right">₹${parseFloat(item.taxableValue || '0').toFixed(2)}</td>
           <td class="text-center">${parseFloat(item.gstRate || '0')}%</td>
           <td class="text-right">₹${parseFloat(item.igstAmount || '0').toFixed(2)}</td>
           <td class="text-right">₹${parseFloat(item.lineTotal || '0').toFixed(2)}</td>
         </tr>
-      `).join('')}
+      `;
+      }).join('')}
     </tbody>
   </table>
 

@@ -60,10 +60,11 @@ Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon 
 ## Recent Changes
 
 **November 9, 2025**
+- **Line-Item Discount Display**: Enhanced invoice preview and PDF to show discount amounts on each line item. Order-level discounts are now distributed proportionally across all line items and displayed in a dedicated "Disc." column. Both the invoice preview and PDF template now include this column between "Rate" and "Taxable" columns. The discount also continues to appear in the totals section for clarity.
+- **Delete All Orders with Invoices**: Updated "Delete All Orders" feature to also delete associated invoices before deleting orders. This allows complete data cleanup when re-importing CSV files with updated discount information. The endpoint now deletes all invoices linked to orders first, then deletes all orders in the account.
 - **Invoice Editing**: Implemented full invoice editing capability. Users can now edit existing invoices via the Edit action in the invoices table. The edit page pre-populates all invoice data (items, customer details, amounts, etc.) and allows modifications to be saved via PUT request to `/api/invoices/:id`.
 - **CSV Discount Import**: Fixed bug where the "Discount Amount" field from Shopify CSV exports was not being saved to orders. The CSV import now properly reads the "Discount Amount" column and saves it to `orders.discountTotal`. This ensures that when invoices are created from orders, the discount is correctly applied and reflected in the invoice totals.
 - **Default GST Rate**: Changed the default GST rate from 18% to 5% across all CSV imports and invoice line items. When products or orders are imported without a specified GST rate, the system now defaults to 5% instead of 18%.
-- **Delete All Orders**: Added "Delete All Orders" button to the Orders page. Users can now delete all orders at once (except those with invoices) via a confirmation dialog. This is useful for clearing old data before re-importing CSV files.
 
 **November 8, 2025**
 - **Tax-Inclusive Pricing**: Changed invoice calculations from tax-exclusive to tax-inclusive. GST is now included in the unit price rather than added on top. For example, a unit price of ₹999 with 18% GST now calculates as: Taxable Value = ₹846.61, IGST = ₹152.39, Total = ₹999 (instead of adding GST on top to get ₹1178.82).

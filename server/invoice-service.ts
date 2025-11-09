@@ -48,40 +48,66 @@ export async function buildInvoiceFromOrder(
   const shippingStateCode = order.shippingStateCode?.trim() || "";
   const isSameState = entityStateCode === shippingStateCode;
 
-  const calculatedItems: InvoiceItemCalculation[] = order.items.map((item) => {
+  const tempItems = order.items.map((item) => {
     const quantity = parseFloat(item.quantity || "0");
     const unitPrice = parseFloat(item.unitPrice || "0");
-    const discount = parseFloat(item.discount || "0");
     const gstRate = parseFloat(item.gstRate || "0") / 100;
 
-    const lineTotal = quantity * unitPrice - discount;
+    const lineTotal = quantity * unitPrice;
     const taxableValue = lineTotal / (1 + gstRate);
     const taxAmount = lineTotal - taxableValue;
-
-    const cgst = 0;
-    const sgst = 0;
-    const igst = taxAmount;
 
     return {
       description: item.name,
       hsnCode: item.hsnCode,
-      quantity: String(quantity),
-      unit: "UNT",
-      rate: String(unitPrice),
-      priceIncludesTax: true,
-      discountPercent: "0",
-      taxableValue: String(taxableValue.toFixed(2)),
-      gstRate: String(parseFloat(item.gstRate || "0")),
-      cgstAmount: String(cgst.toFixed(2)),
-      sgstAmount: String(sgst.toFixed(2)),
-      igstAmount: String(igst.toFixed(2)),
-      cessAmount: "0",
-      lineTotal: String(lineTotal.toFixed(2)),
+      quantity,
+      unitPrice,
+      gstRate: parseFloat(item.gstRate || "0"),
+      lineTotal,
+      taxableValue,
+      taxAmount,
       productId: item.productId,
     };
   });
 
-  const itemTotals = calculatedItems.reduce(
+  const grossBeforeDiscount = tempItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const orderDiscount = Math.min(parseFloat(order.discountTotal || "0"), grossBeforeDiscount);
+
+  const calculatedItems: InvoiceItemCalculation[] = tempItems.map((item) => {
+    let itemDiscount = 0;
+    let adjustedLineTotal = item.lineTotal;
+    let adjustedTaxableValue = item.taxableValue;
+    let adjustedTaxAmount = item.taxAmount;
+
+    if (orderDiscount > 0 && grossBeforeDiscount > 0) {
+      const discountRatio = item.lineTotal / grossBeforeDiscount;
+      itemDiscount = orderDiscount * discountRatio;
+      
+      adjustedLineTotal = Math.max(0, item.lineTotal - itemDiscount);
+      adjustedTaxableValue = adjustedLineTotal / (1 + (item.gstRate / 100));
+      adjustedTaxAmount = adjustedLineTotal - adjustedTaxableValue;
+    }
+
+    return {
+      description: item.description,
+      hsnCode: item.hsnCode,
+      quantity: String(item.quantity),
+      unit: "UNT",
+      rate: String(item.unitPrice.toFixed(2)),
+      priceIncludesTax: true,
+      discountPercent: String(itemDiscount.toFixed(2)),
+      taxableValue: String(adjustedTaxableValue.toFixed(2)),
+      gstRate: String(item.gstRate),
+      cgstAmount: "0",
+      sgstAmount: "0",
+      igstAmount: String(adjustedTaxAmount.toFixed(2)),
+      cessAmount: "0",
+      lineTotal: String(adjustedLineTotal.toFixed(2)),
+      productId: item.productId,
+    };
+  });
+
+  const totals = calculatedItems.reduce(
     (acc, item) => ({
       subtotal: acc.subtotal + parseFloat(item.taxableValue),
       totalCgst: acc.totalCgst + parseFloat(item.cgstAmount),
@@ -101,38 +127,6 @@ export async function buildInvoiceFromOrder(
       totalQty: 0,
     }
   );
-
-  const grossBeforeDiscount = itemTotals.grandTotal;
-  const orderDiscount = Math.min(parseFloat(order.discountTotal || "0"), grossBeforeDiscount);
-  const totalAfterDiscount = Math.max(0, grossBeforeDiscount - orderDiscount);
-  
-  let totals = itemTotals;
-  if (orderDiscount > 0 && grossBeforeDiscount > 0) {
-    if (totalAfterDiscount === 0) {
-      totals = {
-        ...itemTotals,
-        subtotal: 0,
-        totalIgst: 0,
-        totalCgst: 0,
-        totalSgst: 0,
-        grandTotal: 0,
-      };
-    } else {
-      const discountRatio = totalAfterDiscount / grossBeforeDiscount;
-      
-      const taxableValueAfterDiscount = itemTotals.subtotal * discountRatio;
-      const igstAfterDiscount = itemTotals.totalIgst * discountRatio;
-      
-      totals = {
-        ...itemTotals,
-        subtotal: taxableValueAfterDiscount,
-        totalIgst: igstAfterDiscount,
-        totalCgst: 0,
-        totalSgst: 0,
-        grandTotal: totalAfterDiscount,
-      };
-    }
-  }
 
   const defaultBank = await db.query.banks.findFirst({
     where: eq(schema.banks.entityId, entityId),
@@ -157,7 +151,7 @@ export async function buildInvoiceFromOrder(
         ? `${order.shippingStateCode || ""}-${order.shippingState}`
         : null,
       subtotal: String(totals.subtotal.toFixed(2)),
-      discountTotal: String(orderDiscount.toFixed(2)),
+      discountTotal: String((orderDiscount || 0).toFixed(2)),
       totalCgst: String(totals.totalCgst.toFixed(2)),
       totalSgst: String(totals.totalSgst.toFixed(2)),
       totalIgst: String(totals.totalIgst.toFixed(2)),
