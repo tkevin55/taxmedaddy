@@ -1195,6 +1195,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/orders/delete-all", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
+    try {
+      const accountId = req.user!.accountId;
+
+      // Fetch ALL orders for this account (without invoices)
+      const allOrders = await db.query.orders.findMany({
+        where: and(
+          eq(schema.orders.accountId, accountId),
+          eq(schema.orders.hasInvoice, false)
+        ),
+      });
+
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      for (const order of allOrders) {
+        try {
+          await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, order.id));
+          await db.delete(schema.orders).where(eq(schema.orders.id, order.id));
+          deletedCount++;
+          await logAudit(accountId, req.user!.userId, "delete", "order", order.id);
+        } catch (error) {
+          console.error(`Error deleting order ${order.id}:`, error);
+          errors.push(`Failed to delete order ${order.shopifyOrderNumber}`);
+        }
+      }
+
+      // Count orders with invoices that couldn't be deleted
+      const ordersWithInvoices = await db.query.orders.findMany({
+        where: and(
+          eq(schema.orders.accountId, accountId),
+          eq(schema.orders.hasInvoice, true)
+        ),
+      });
+
+      if (ordersWithInvoices.length > 0) {
+        errors.push(`${ordersWithInvoices.length} order(s) with invoices were skipped`);
+      }
+
+      res.json({
+        message: `Deleted ${deletedCount} order(s)`,
+        deletedCount,
+        skippedCount: ordersWithInvoices.length,
+        errors,
+      });
+    } catch (error) {
+      console.error("Error deleting all orders:", error);
+      res.status(500).json({ error: "Failed to delete all orders" });
+    }
+  });
+
   app.post("/api/orders/bulk-generate-invoices", requireAuth, requireRole("admin", "staff"), async (req: AuthRequest, res) => {
     try {
       const { orderIds, entityId } = req.body;

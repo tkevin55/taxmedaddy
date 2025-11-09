@@ -280,13 +280,40 @@ export default function Orders() {
     bulkDeleteMutation.mutate(selectedOrders);
   };
 
+  const deleteAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/orders/delete-all", {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setIsDeleteAllConfirmOpen(false);
+      toast({
+        title: "Orders Deleted",
+        description: `Successfully deleted ${data.deletedCount} order(s). ${data.skippedCount || 0} order(s) with invoices were skipped.`,
+      });
+      if (data.errors && data.errors.length > 0) {
+        toast({
+          title: "Note",
+          description: data.errors.join(", "),
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Delete Orders",
+        description: error.message || "Could not delete all orders",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDeleteAll = () => {
     setIsDeleteAllConfirmOpen(true);
   };
 
   const handleConfirmDeleteAll = () => {
-    const allOrderIds = ordersData?.map(order => order.id.toString()) || [];
-    bulkDeleteMutation.mutate(allOrderIds);
+    deleteAllMutation.mutate();
   };
 
   const handleBulkGenerateInvoices = () => {
@@ -587,10 +614,10 @@ export default function Orders() {
             <AlertDialogAction
               onClick={handleConfirmDeleteAll}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={bulkDeleteMutation.isPending}
+              disabled={deleteAllMutation.isPending}
               data-testid="button-confirm-delete-all"
             >
-              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete All"}
+              {deleteAllMutation.isPending ? "Deleting..." : "Delete All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
