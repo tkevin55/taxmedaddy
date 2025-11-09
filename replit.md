@@ -60,6 +60,7 @@ Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon 
 ## Recent Changes
 
 **November 9, 2025**
+- **Sortable Orders Table**: Orders table now supports sorting by Date, Customer, Amount, and Order # columns. Click on any column header to sort, click again to reverse the order. Default sort is by date (newest first) with visual indicators showing active sort column and direction.
 - **Invoice Date from Order Date**: Invoice date now automatically populates from the order's "Created at" date from CSV imports, instead of defaulting to today's date. This ensures invoices reflect the actual date the order was received.
 - **Product Tax Inclusion Toggle**: Added "with Tax" / "without Tax" toggle to product forms, allowing users to specify whether the selling price includes GST or not. This provides flexibility for different pricing models.
 - **Price with Tax Column Fix**: Fixed "Price with Tax" column in Products & Services section to show per-unit tax-inclusive price (unit price + GST per unit) instead of the line total. For example, a product with unit price ₹28.57 and 5% GST now correctly shows ₹30.00 in the "Price with Tax" column, matching professional invoicing software behavior.
