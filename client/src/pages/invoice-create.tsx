@@ -253,6 +253,7 @@ export default function InvoiceCreate() {
       },
     ],
     discount: 0,
+    paymentMethod: '',
     notes: '',
     terms: '',
     bankDetails: {
@@ -445,7 +446,8 @@ export default function InvoiceCreate() {
 
       setInvoiceData({
         invoiceNumber: existingInvoice.invoiceNumber || 'DRAFT',
-        date: existingInvoice.date || new Date().toISOString().split('T')[0],
+        invoiceDate: existingInvoice.invoiceDate || new Date().toISOString().split('T')[0],
+        dueDate: existingInvoice.dueDate || '',
         reference: existingInvoice.reference || '',
         supplier: {
           name: existingInvoice.entity?.legalName || existingInvoice.supplierName || '',
@@ -453,31 +455,46 @@ export default function InvoiceCreate() {
           address: existingInvoice.entity?.address || existingInvoice.supplierAddress || '',
           city: existingInvoice.entity?.city || '',
           state: existingInvoice.entity?.state || existingInvoice.supplierState || '',
+          stateCode: existingInvoice.entity?.stateCode || '',
           pincode: existingInvoice.entity?.pincode || '',
-          phone: existingInvoice.entity?.phone || '',
+          mobile: existingInvoice.entity?.phone || '',
           email: existingInvoice.entity?.email || '',
+          website: existingInvoice.entity?.website || '',
         },
         buyer: {
           name: existingInvoice.buyerName || '',
-          company: existingInvoice.buyerCompany || '',
-          gstin: existingInvoice.buyerGstin || '',
           phone: existingInvoice.buyerPhone || '',
           email: existingInvoice.buyerEmail || '',
+          gstin: existingInvoice.buyerGstin || '',
           billingAddress: existingInvoice.billingAddress || '',
-          shippingAddress: existingInvoice.shippingAddress || '',
+          billingCity: '',
           billingState: existingInvoice.billingState || '',
+          billingPincode: '',
+          shippingAddress: existingInvoice.shippingAddress || '',
+          shippingCity: '',
           shippingState: existingInvoice.shippingState || '',
+          shippingPincode: '',
         },
         placeOfSupply: existingInvoice.placeOfSupply || '',
         items: invoiceItems,
         discount: typeof existingInvoice.discount === 'number' ? existingInvoice.discount : parseFloat(existingInvoice.discount || '0'),
+        paymentMethod: existingInvoice.paymentMethod || '',
+        notes: '',
+        terms: '',
+        bankDetails: {
+          bank: '',
+          accountNumber: '',
+          ifsc: '',
+          branch: '',
+          upi: '',
+        },
         customHeaders: {
           vehicleNo: existingInvoice.vehicleNo || '',
           poNumber: existingInvoice.poNumber || '',
           challanNo: existingInvoice.challanNo || '',
           deliveryDate: existingInvoice.deliveryDate || '',
           salesPerson: existingInvoice.salesPerson || '',
-          ewayBillNo: existingInvoice.ewayBillNo || '',
+          dispatchNumber: '',
         },
       });
       
@@ -630,14 +647,13 @@ export default function InvoiceCreate() {
     const invoice = {
       entityId: entityId,
       invoiceNumber: invoiceData.invoiceNumber,
-      date: invoiceData.date,
+      invoiceDate: invoiceData.invoiceDate,
       reference: invoiceData.reference,
       supplierName: entity.legalName || entity.displayName,
       supplierGstin: entity.gstin || '',
       supplierAddress: entity.addressLine1 || '',
       supplierState: entity.state || '',
       buyerName: invoiceData.buyer.name,
-      buyerCompany: invoiceData.buyer.company,
       buyerGstin: invoiceData.buyer.gstin,
       buyerPhone: invoiceData.buyer.phone,
       buyerEmail: invoiceData.buyer.email,
@@ -651,8 +667,8 @@ export default function InvoiceCreate() {
       challanNo: invoiceData.customHeaders.challanNo,
       deliveryDate: invoiceData.customHeaders.deliveryDate,
       salesPerson: invoiceData.customHeaders.salesPerson,
-      ewayBillNo: invoiceData.customHeaders.ewayBillNo,
       discount: totals.discount?.toString() || "0",
+      paymentMethod: invoiceData.paymentMethod || null,
       totalTaxableValue: totals.taxableValue.toFixed(2),
       totalCgst: totals.cgst.toFixed(2),
       totalSgst: totals.sgst.toFixed(2),
@@ -1483,16 +1499,23 @@ export default function InvoiceCreate() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Payment Mode</Label>
-                  <Select defaultValue="upi">
-                    <SelectTrigger data-testid="select-payment-mode">
-                      <SelectValue />
+                  <Label className="text-xs">Payment Method</Label>
+                  <Select 
+                    value={invoiceData.paymentMethod} 
+                    onValueChange={(value) => updateInvoice('paymentMethod', value)}
+                  >
+                    <SelectTrigger data-testid="select-payment-method">
+                      <SelectValue placeholder="Select payment method" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="upi">UPI</SelectItem>
                       <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="upi">UPI</SelectItem>
+                      <SelectItem value="netbanking">Net Banking</SelectItem>
                       <SelectItem value="card">Card</SelectItem>
-                      <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                      <SelectItem value="neft">NEFT</SelectItem>
+                      <SelectItem value="rtgs">RTGS</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

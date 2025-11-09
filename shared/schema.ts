@@ -212,6 +212,7 @@ export const invoices = pgTable("invoices", {
   bankId: integer("bank_id").references(() => banks.id, { onDelete: "set null" }),
   signatureId: integer("signature_id").references(() => signatures.id, { onDelete: "set null" }),
   paymentStatus: text("payment_status").default("unpaid"),
+  paymentMethod: text("payment_method"),
   isDraft: boolean("is_draft").default(true),
   pdfUrl: text("pdf_url"),
   createdBy: integer("created_by").references(() => users.id, { onDelete: "set null" }),
