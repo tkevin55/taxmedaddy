@@ -397,6 +397,10 @@ export default function InvoiceCreate() {
         ? (orderDiscount / orderSubtotal) * 100
         : 0;
 
+      const orderDateStr = orderData.orderDate 
+        ? new Date(orderData.orderDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+
       const orderItems = orderData.items?.map((item, index) => ({
         id: String(index + 1),
         description: item.name || '',
@@ -434,6 +438,7 @@ export default function InvoiceCreate() {
       setInvoiceData(prev => {
         const newData = {
           ...prev,
+          invoiceDate: orderDateStr,
           reference: orderData.shopifyOrderNumber || '',
           discount: orderDiscount,
           buyer: {
