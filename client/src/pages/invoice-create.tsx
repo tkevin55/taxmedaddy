@@ -80,6 +80,7 @@ type Product = {
   defaultPrice?: string;
   hsnCode?: string;
   gstRate?: string;
+  priceIncludesTax?: boolean;
 };
 
 export default function InvoiceCreate() {
@@ -263,6 +264,7 @@ export default function InvoiceCreate() {
         rate: 0,
         discount: 0,
         gstRate: 5,
+        priceIncludesTax: false,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -304,12 +306,27 @@ export default function InvoiceCreate() {
     const quantity = parseFloat(String(item.quantity)) || 0;
     const discount = parseFloat(String(item.discount)) || 0;
     const gstRate = parseFloat(String(item.gstRate)) || 0;
+    const priceIncludesTax = item.priceIncludesTax || false;
     
-    const lineTotal = rate * quantity;
-    const discountAmount = (lineTotal * discount) / 100;
-    const taxableValue = lineTotal - discountAmount;
-    const taxAmount = taxableValue * (gstRate / 100);
-    const total = taxableValue + taxAmount;
+    let taxableValue: number;
+    let taxAmount: number;
+    let total: number;
+    
+    if (priceIncludesTax) {
+      const lineTotal = rate * quantity;
+      const discountAmount = (lineTotal * discount) / 100;
+      const totalAfterDiscount = lineTotal - discountAmount;
+      
+      taxableValue = totalAfterDiscount / (1 + gstRate / 100);
+      taxAmount = totalAfterDiscount - taxableValue;
+      total = totalAfterDiscount;
+    } else {
+      const lineTotal = rate * quantity;
+      const discountAmount = (lineTotal * discount) / 100;
+      taxableValue = lineTotal - discountAmount;
+      taxAmount = taxableValue * (gstRate / 100);
+      total = taxableValue + taxAmount;
+    }
     
     return {
       ...item,
@@ -317,6 +334,7 @@ export default function InvoiceCreate() {
       quantity,
       discount,
       gstRate,
+      priceIncludesTax,
       taxableValue,
       cgst: 0,
       sgst: 0,
@@ -411,6 +429,7 @@ export default function InvoiceCreate() {
         rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
         discount: discountPercent,
         gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
+        priceIncludesTax: false,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -426,6 +445,7 @@ export default function InvoiceCreate() {
         rate: 0,
         discount: 0,
         gstRate: 5,
+        priceIncludesTax: false,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -479,6 +499,7 @@ export default function InvoiceCreate() {
         rate: typeof item.rate === 'number' ? item.rate : parseFloat(item.rate || '0'),
         discount: typeof item.discount === 'number' ? item.discount : parseFloat(item.discount || '0'),
         gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
+        priceIncludesTax: item.priceIncludesTax || false,
         taxableValue: typeof item.taxableValue === 'number' ? item.taxableValue : parseFloat(item.taxableValue || '0'),
         cgst: typeof item.cgst === 'number' ? item.cgst : parseFloat(item.cgst || '0'),
         sgst: typeof item.sgst === 'number' ? item.sgst : parseFloat(item.sgst || '0'),
@@ -494,6 +515,7 @@ export default function InvoiceCreate() {
         rate: 0,
         discount: 0,
         gstRate: 5,
+        priceIncludesTax: false,
         taxableValue: 0,
         cgst: 0,
         sgst: 0,
@@ -632,6 +654,7 @@ export default function InvoiceCreate() {
       rate: 0,
       discount: 0,
       gstRate: 5,
+      priceIncludesTax: false,
       taxableValue: 0,
       cgst: 0,
       sgst: 0,
@@ -656,6 +679,7 @@ export default function InvoiceCreate() {
     updateItem(itemIndex, 'hsn', product.hsnCode || '');
     updateItem(itemIndex, 'rate', parseFloat(product.defaultPrice || '0'));
     updateItem(itemIndex, 'gstRate', parseFloat(product.gstRate || '5'));
+    updateItem(itemIndex, 'priceIncludesTax', product.priceIncludesTax || false);
     setProductSearchQuery("");
     setProductSearchOpen(false);
   };
