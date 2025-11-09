@@ -86,7 +86,7 @@ export async function importProductsFromCSV(
       }
 
       const hsnCode = row["Variant Tax Code"] || "";
-      const gstRate = hsnCode ? deriveGSTRateFromTaxCode(hsnCode) : "18.00";
+      const gstRate = hsnCode ? deriveGSTRateFromTaxCode(hsnCode) : "5.00";
       const sku = row["Variant SKU"] || row.Handle;
 
       const productData = {
@@ -186,7 +186,7 @@ export async function importOrdersFromCSV(
         const lineitemTax = parseFloat(row["Lineitem tax"] || "0");
         
         let hsnCode = "";
-        let gstRate = "18.00";
+        let gstRate = "5.00";
         
         if (row["Lineitem sku"]) {
           const product = await db.query.products.findFirst({
@@ -198,7 +198,7 @@ export async function importOrdersFromCSV(
           
           if (product) {
             hsnCode = product.hsnCode || "";
-            gstRate = product.gstRate || "18.00";
+            gstRate = product.gstRate || "5.00";
           }
         }
 
@@ -293,7 +293,7 @@ export async function importOrdersFromCSV(
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           hsnCode: item.hsnCode || "",
-          gstRate: item.gstRate || "18.00",
+          gstRate: item.gstRate || "5.00",
         });
       }
 
@@ -315,7 +315,7 @@ function deriveGSTRateFromTaxCode(taxCode: string): string {
   if (cleaned.includes("18") || cleaned.includes("eighteen")) return "18.00";
   if (cleaned.includes("28") || cleaned.includes("twenty")) return "28.00";
   
-  return "18.00";
+  return "5.00";
 }
 
 function mapFinancialStatusToPaymentStatus(financialStatus: string): string {
