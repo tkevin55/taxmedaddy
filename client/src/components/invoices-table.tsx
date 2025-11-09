@@ -1,4 +1,4 @@
-import { Download, Eye, MoreVertical, Send } from "lucide-react";
+import { Download, Eye, MoreVertical, Send, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +33,7 @@ interface Invoice {
 interface InvoicesTableProps {
   invoices: Invoice[];
   onDownloadPDF?: (invoiceId: string, invoiceNumber: string) => void;
+  onEdit?: (invoiceId: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -50,7 +51,7 @@ const typeLabels = {
   export_invoice: 'Export Invoice',
 };
 
-export function InvoicesTable({ invoices, onDownloadPDF }: InvoicesTableProps) {
+export function InvoicesTable({ invoices, onDownloadPDF, onEdit }: InvoicesTableProps) {
   return (
     <div className="border rounded-lg">
       <Table>
@@ -99,6 +100,13 @@ export function InvoicesTable({ invoices, onDownloadPDF }: InvoicesTableProps) {
                     <DropdownMenuItem data-testid={`button-view-${invoice.id}`}>
                       <Eye className="w-4 h-4 mr-2" />
                       View Invoice
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => onEdit?.(invoice.id)}
+                      data-testid={`button-edit-${invoice.id}`}
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Invoice
                     </DropdownMenuItem>
                     {invoice.hasPdf && (
                       <DropdownMenuItem 
