@@ -1372,14 +1372,14 @@ export default function InvoiceCreate() {
 
                         <div className="col-span-2">
                           <Input
-                            value={`₹${item.total.toFixed(2)}`}
+                            value={`₹${(item.rate * (1 + item.gstRate / 100)).toFixed(2)}`}
                             disabled
                             className="h-8 font-mono text-sm bg-muted/50"
                             data-testid={`input-price-with-tax-${index}`}
                           />
                           {item.discount > 0 && (
                             <div className="text-xs text-muted-foreground px-1 mt-1">
-                              after disc: ₹{(item.total * (1 - item.discount / 100)).toFixed(2)}
+                              after disc: ₹{(item.rate * (1 + item.gstRate / 100) * (1 - item.discount / 100)).toFixed(2)}
                             </div>
                           )}
                         </div>
