@@ -1243,9 +1243,6 @@ export default function InvoiceCreate() {
                                 className="h-8 text-sm font-medium border-none shadow-none px-1 bg-transparent"
                               />
                               <div className="flex flex-col gap-1 px-1 mt-1">
-                                <div className="text-xs text-orange-600">
-                                  In Stock: -5.00 {item.unit}
-                                </div>
                                 <button 
                                   className="text-xs text-blue-600 hover:underline text-left"
                                   onClick={() => {
