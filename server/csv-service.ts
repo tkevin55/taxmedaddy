@@ -49,6 +49,8 @@ interface OrderCSVRow {
   "Discount Code"?: string;
   "Discount Amount"?: string;
   "Shipping Method"?: string;
+  "Tax 1 Name"?: string;
+  "Tax 1 Value"?: string;
   Notes?: string;
   Tags?: string;
   Phone?: string;
@@ -183,12 +185,22 @@ export async function importOrdersFromCSV(
 
         const quantity = parseFloat(row["Lineitem quantity"] || "1");
         const taxInclusivePrice = parseFloat(row["Lineitem price"] || "0");
-        const lineitemTax = parseFloat(row["Lineitem tax"] || "0");
         
         let hsnCode = "";
         let gstRate = "5.00";
         
-        if (row["Lineitem sku"]) {
+        const tax1Name = row["Tax 1 Name"] || "";
+        const tax1Value = parseFloat(row["Tax 1 Value"] || "0");
+        
+        if (tax1Name.toLowerCase().includes("igst") || 
+            tax1Name.toLowerCase().includes("cgst") || 
+            tax1Name.toLowerCase().includes("sgst")) {
+          if (tax1Value > 0) {
+            gstRate = tax1Value.toFixed(2);
+          } else {
+            gstRate = "0.00";
+          }
+        } else if (row["Lineitem sku"]) {
           const product = await db.query.products.findFirst({
             where: and(
               eq(schema.products.sku, row["Lineitem sku"]),
@@ -205,14 +217,13 @@ export async function importOrdersFromCSV(
         let taxExclusiveUnitPrice: number;
         let itemTax: number;
 
-        if (lineitemTax > 0) {
-          itemTax = lineitemTax;
-          const totalTaxInclusivePrice = taxInclusivePrice * quantity;
-          taxExclusiveUnitPrice = (totalTaxInclusivePrice - lineitemTax) / quantity;
-        } else {
-          const gstRateDecimal = parseFloat(gstRate) / 100;
+        const gstRateDecimal = parseFloat(gstRate) / 100;
+        if (gstRateDecimal > 0) {
           taxExclusiveUnitPrice = taxInclusivePrice / (1 + gstRateDecimal);
           itemTax = (taxInclusivePrice - taxExclusiveUnitPrice) * quantity;
+        } else {
+          taxExclusiveUnitPrice = taxInclusivePrice;
+          itemTax = 0;
         }
 
         orderSubtotal += taxExclusiveUnitPrice * quantity;
