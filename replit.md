@@ -59,6 +59,10 @@ Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon 
 
 ## Recent Changes
 
+**November 9, 2025**
+- **Invoice Editing**: Implemented full invoice editing capability. Users can now edit existing invoices via the Edit action in the invoices table. The edit page pre-populates all invoice data (items, customer details, amounts, etc.) and allows modifications to be saved via PUT request to `/api/invoices/:id`.
+- **CSV Discount Import**: Fixed bug where the "Discount Amount" field from Shopify CSV exports was not being saved to orders. The CSV import now properly reads the "Discount Amount" column and saves it to `orders.discountTotal`. This ensures that when invoices are created from orders, the discount is correctly applied and reflected in the invoice totals.
+
 **November 8, 2025**
 - **Tax-Inclusive Pricing**: Changed invoice calculations from tax-exclusive to tax-inclusive. GST is now included in the unit price rather than added on top. For example, a unit price of ₹999 with 18% GST now calculates as: Taxable Value = ₹846.61, IGST = ₹152.39, Total = ₹999 (instead of adding GST on top to get ₹1178.82).
 - **Auto-Invoice Numbering**: Invoices created from orders are now automatically finalized with invoice numbers (e.g., INV-0001) instead of being saved as drafts. This ensures PDFs display proper invoice numbers instead of "DRAFT".

@@ -245,6 +245,7 @@ export async function importOrdersFromCSV(
       
       const shippingProvinceCode = firstRow["Shipping Province Code"] || firstRow["Shipping Province"] || firstRow["Billing Province Code"] || firstRow["Billing Province"] || "";
       
+      const orderDiscountAmount = parseFloat(firstRow["Discount Amount"] || "0");
       const orderTotal = orderSubtotal + orderTaxTotal;
       
       const paymentStatus = mapFinancialStatusToPaymentStatus(firstRow["Financial Status"] || "");
@@ -276,6 +277,7 @@ export async function importOrdersFromCSV(
         shippingStateCode: shippingProvinceCode,
         currency: "INR",
         subtotal: orderSubtotal.toFixed(2),
+        discountTotal: orderDiscountAmount.toFixed(2),
         taxTotal: orderTaxTotal.toFixed(2),
         total: orderTotal.toFixed(2),
         paymentStatus: paymentStatus,
