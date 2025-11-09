@@ -87,7 +87,7 @@ export default function InvoiceCreate() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
   
-  const searchParams = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '');
+  const searchParams = new URLSearchParams(window.location.search);
   const orderId = searchParams.get('orderId');
   
   const invoiceIdMatch = location.match(/\/invoices\/(\d+)\/edit/);
