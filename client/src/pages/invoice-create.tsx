@@ -1606,11 +1606,13 @@ export default function InvoiceCreate() {
           </Card>
 
           <div className="flex items-center justify-end gap-2 pt-6">
-            <Button variant="outline" data-testid="button-cancel">
-              Cancel
-            </Button>
-            <Button onClick={handleGenerateInvoice} data-testid="button-generate-invoice">
-              Generate Invoice
+            <Link href="/invoices">
+              <Button variant="outline" data-testid="button-cancel">
+                Cancel
+              </Button>
+            </Link>
+            <Button onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending || entitiesLoading || banksLoading} data-testid="button-generate-invoice">
+              {saveInvoiceMutation.isPending ? 'Saving...' : (isEditMode ? 'Update Invoice' : 'Generate Invoice')}
             </Button>
           </div>
         </div>
