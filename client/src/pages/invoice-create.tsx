@@ -599,43 +599,118 @@ export default function InvoiceCreate() {
     signature: selectedSignature,
   };
 
-  const generateInvoiceMutation = useMutation({
+  const buildInvoicePayload = () => {
+    if (!entities || entities.length === 0) {
+      throw new Error("No business entity configured. Please add one in Settings.");
+    }
+    
+    const entity = entities[0];
+    const bankId = selectedBankId !== "no-bank" ? parseInt(selectedBankId) : null;
+    const signatureId = selectedSignatureId !== "no-signature" ? parseInt(selectedSignatureId) : null;
+    
+    const invoice = {
+      entityId: entity.id,
+      invoiceNumber: invoiceData.invoiceNumber,
+      date: invoiceData.date,
+      reference: invoiceData.reference,
+      supplierName: entity.legalName,
+      supplierGstin: entity.gstin,
+      supplierAddress: entity.address,
+      supplierState: entity.state,
+      buyerName: invoiceData.buyer.name,
+      buyerCompany: invoiceData.buyer.company,
+      buyerGstin: invoiceData.buyer.gstin,
+      buyerPhone: invoiceData.buyer.phone,
+      buyerEmail: invoiceData.buyer.email,
+      billingAddress: invoiceData.buyer.billingAddress,
+      shippingAddress: invoiceData.buyer.shippingAddress,
+      billingState: invoiceData.buyer.billingState,
+      shippingState: invoiceData.buyer.shippingState,
+      placeOfSupply: invoiceData.placeOfSupply,
+      vehicleNo: invoiceData.customHeaders.vehicleNo,
+      poNumber: invoiceData.customHeaders.poNumber,
+      challanNo: invoiceData.customHeaders.challanNo,
+      deliveryDate: invoiceData.customHeaders.deliveryDate,
+      salesPerson: invoiceData.customHeaders.salesPerson,
+      ewayBillNo: invoiceData.customHeaders.ewayBillNo,
+      discount: totals.discount?.toString() || "0",
+      totalTaxableValue: totals.taxableValue.toFixed(2),
+      totalCgst: totals.cgst.toFixed(2),
+      totalSgst: totals.sgst.toFixed(2),
+      totalIgst: totals.igst.toFixed(2),
+      grandTotal: totals.total.toFixed(2),
+      bankId,
+      signatureId,
+      status: 'finalized',
+    };
+    
+    const items = invoiceData.items.map(item => ({
+      description: item.description,
+      details: item.details,
+      hsnCode: item.hsn,
+      quantity: item.quantity.toString(),
+      unit: item.unit,
+      rate: item.rate.toString(),
+      discount: item.discount.toString(),
+      gstRate: item.gstRate.toString(),
+      taxableValue: item.taxableValue.toFixed(2),
+      cgst: item.cgst.toFixed(2),
+      sgst: item.sgst.toFixed(2),
+      igst: item.igst.toFixed(2),
+      total: item.total.toFixed(2),
+    }));
+    
+    return { invoice, items };
+  };
+
+  const saveInvoiceMutation = useMutation({
     mutationFn: async () => {
-      if (!orderId) {
-        throw new Error("No order selected");
+      if (isEditMode) {
+        const payload = buildInvoicePayload();
+        const response = await apiRequest("PUT", `/api/invoices/${invoiceId}`, payload);
+        return response;
+      } else {
+        if (!orderId) {
+          throw new Error("No order selected");
+        }
+        if (!entities || entities.length === 0) {
+          throw new Error("No business entity configured. Please add one in Settings.");
+        }
+        const entityId = entities[0].id;
+        const signatureId = selectedSignatureId !== "no-signature" ? parseInt(selectedSignatureId) : null;
+        
+        const response = await apiRequest("POST", `/api/orders/${orderId}/create-invoice`, {
+          entityId,
+          signatureId,
+        });
+        return response;
       }
-      if (!entities || entities.length === 0) {
-        throw new Error("No business entity configured. Please add one in Settings.");
-      }
-      const entityId = entities[0].id;
-      const signatureId = selectedSignatureId !== "no-signature" ? parseInt(selectedSignatureId) : null;
-      
-      const response = await apiRequest("POST", `/api/orders/${orderId}/create-invoice`, {
-        entityId,
-        signatureId,
-      });
-      return response;
     },
     onSuccess: (data) => {
       toast({
         title: "Success",
-        description: "Invoice generated successfully",
+        description: isEditMode ? "Invoice updated successfully" : "Invoice generated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      if (invoiceId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoiceId] });
+      }
+      if (orderId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      }
       navigate("/invoices");
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to generate invoice",
+        description: error.message || (isEditMode ? "Failed to update invoice" : "Failed to generate invoice"),
         variant: "destructive",
       });
     },
   });
 
-  const handleGenerateInvoice = () => {
-    if (!orderId) {
+  const handleSaveInvoice = () => {
+    if (!isEditMode && !orderId) {
       toast({
         title: "Error",
         description: "No order selected",
@@ -643,7 +718,7 @@ export default function InvoiceCreate() {
       });
       return;
     }
-    generateInvoiceMutation.mutate();
+    saveInvoiceMutation.mutate();
   };
 
   return (
@@ -657,12 +732,13 @@ export default function InvoiceCreate() {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold">Create Invoice</h1>
+              <h1 className="text-2xl font-semibold">{isEditMode ? 'Edit Invoice' : 'Create Invoice'}</h1>
               <Input
                 value={invoiceData.invoiceNumber}
                 onChange={(e) => updateInvoice('invoiceNumber', e.target.value)}
                 className="w-32 font-mono h-8"
                 data-testid="input-invoice-number-header"
+                disabled={!isEditMode}
               />
             </div>
           </div>
@@ -674,11 +750,11 @@ export default function InvoiceCreate() {
           <Button variant="outline" size="sm" data-testid="button-save-draft">
             Save as Draft
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-save-print">
-            Save and Print
+          <Button variant="outline" size="sm" data-testid="button-save-print" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending}>
+            {isEditMode ? 'Update and Print' : 'Save and Print'}
           </Button>
-          <Button size="sm" data-testid="button-save">
-            Save
+          <Button size="sm" data-testid="button-save" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending}>
+            {saveInvoiceMutation.isPending ? 'Saving...' : (isEditMode ? 'Update' : 'Save')}
           </Button>
         </div>
       </div>
