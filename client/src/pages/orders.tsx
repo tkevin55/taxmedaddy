@@ -83,6 +83,7 @@ export default function Orders() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<any>(null);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
   const [isGenerateConfirmOpen, setIsGenerateConfirmOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<string | null>(null);
   const [, navigate] = useLocation();
@@ -198,6 +199,7 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setSelectedOrders([]);
       setIsDeleteConfirmOpen(false);
+      setIsDeleteAllConfirmOpen(false);
       toast({
         title: "Orders Deleted",
         description: `Successfully deleted ${data.deletedCount} order(s)`,
@@ -278,6 +280,15 @@ export default function Orders() {
     bulkDeleteMutation.mutate(selectedOrders);
   };
 
+  const handleDeleteAll = () => {
+    setIsDeleteAllConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteAll = () => {
+    const allOrderIds = ordersData?.map(order => order.id.toString()) || [];
+    bulkDeleteMutation.mutate(allOrderIds);
+  };
+
   const handleBulkGenerateInvoices = () => {
     if (entitiesLoading) {
       toast({
@@ -339,6 +350,16 @@ export default function Orders() {
           <p className="text-muted-foreground text-sm mt-1">Manage and invoice your Shopify orders</p>
         </div>
         <div className="flex items-center gap-2">
+          {orders.length > 0 && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleDeleteAll}
+              data-testid="button-delete-all"
+            >
+              Delete All Orders
+            </Button>
+          )}
           <Button 
             variant="default" 
             size="sm" 
@@ -547,6 +568,29 @@ export default function Orders() {
               data-testid="button-confirm-generate"
             >
               {bulkGenerateInvoicesMutation.isPending ? "Generating..." : "Generate Invoices"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isDeleteAllConfirmOpen} onOpenChange={setIsDeleteAllConfirmOpen}>
+        <AlertDialogContent data-testid="dialog-confirm-delete-all">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Orders</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete ALL {ordersData?.length || 0} orders? This action cannot be undone. 
+              Orders with invoices will be skipped and cannot be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-all">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDeleteMutation.isPending}
+              data-testid="button-confirm-delete-all"
+            >
+              {bulkDeleteMutation.isPending ? "Deleting..." : "Delete All"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
