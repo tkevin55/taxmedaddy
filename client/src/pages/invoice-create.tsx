@@ -1364,9 +1364,11 @@ export default function InvoiceCreate() {
                             onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
                             data-testid={`input-unit-price-${index}`}
                           />
-                          <div className="text-xs text-muted-foreground px-1 mt-1">
-                            after disc: ₹{(item.rate * (1 - item.discount / 100)).toFixed(2)}
-                          </div>
+                          {item.discount > 0 && (
+                            <div className="text-xs text-muted-foreground px-1 mt-1">
+                              after disc: ₹{(item.rate * (1 - item.discount / 100)).toFixed(2)}
+                            </div>
+                          )}
                         </div>
 
                         <div className="col-span-2">
@@ -1376,9 +1378,11 @@ export default function InvoiceCreate() {
                             className="h-8 font-mono text-sm bg-muted/50"
                             data-testid={`input-price-with-tax-${index}`}
                           />
-                          <div className="text-xs text-muted-foreground px-1 mt-1">
-                            after disc: ₹{(item.total * (1 - item.discount / 100)).toFixed(2)}
-                          </div>
+                          {item.discount > 0 && (
+                            <div className="text-xs text-muted-foreground px-1 mt-1">
+                              after disc: ₹{(item.total * (1 - item.discount / 100)).toFixed(2)}
+                            </div>
+                          )}
                         </div>
 
                         <div className="col-span-2 flex gap-1">
