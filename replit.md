@@ -60,6 +60,7 @@ Built with Node.js and Express in TypeScript. It utilizes Drizzle ORM with Neon 
 ## Recent Changes
 
 **November 9, 2025**
+- **FIXED: Product Edit Dialog Not Showing Updated Tax Rate**: Fixed bug where the product edit dialog wasn't displaying the updated GST rate after saving changes. The dialog now properly closes after successful updates and correctly displays all field values (including tax %) when reopened.
 - **FIXED: Tax-Inclusive Pricing Calculation**: Fixed critical bug where products marked as "with tax" were incorrectly having additional tax added on top of the price. For example, a product priced at ₹250 with 5% GST included now correctly splits into: taxable value (₹238.10) + GST (₹11.90) = ₹250 total, instead of incorrectly calculating ₹250 + ₹12.50 GST = ₹262.50. The invoice creation form now properly handles both tax-inclusive (priceIncludesTax=true) and tax-exclusive (priceIncludesTax=false) pricing models based on the product's configuration.
 - **Sortable Orders Table**: Orders table now supports sorting by Date, Customer, Amount, and Order # columns. Click on any column header to sort, click again to reverse the order. Default sort is by date (newest first) with visual indicators showing active sort column and direction.
 - **Invoice Date from Order Date**: Invoice date now automatically populates from the order's "Created at" date from CSV imports, instead of defaulting to today's date. This ensures invoices reflect the actual date the order was received.
