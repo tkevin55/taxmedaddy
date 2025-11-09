@@ -102,7 +102,7 @@ export default function InvoiceCreate() {
     queryKey: ["/api/signatures"],
   });
 
-  const { data: entities = [] } = useQuery<Array<{ 
+  const { data: entities = [], isLoading: entitiesLoading } = useQuery<Array<{ 
     id: number; 
     displayName: string; 
     legalName: string;
@@ -120,7 +120,7 @@ export default function InvoiceCreate() {
     queryKey: ["/api/entities"],
   });
 
-  const { data: banks = [] } = useQuery<Array<{
+  const { data: banks = [], isLoading: banksLoading } = useQuery<Array<{
     id: number;
     bankName: string;
     accountNumber: string;
@@ -132,6 +132,8 @@ export default function InvoiceCreate() {
   });
 
   const [selectedSignatureId, setSelectedSignatureId] = useState<string>("no-signature");
+  const [selectedBankId, setSelectedBankId] = useState<string>("no-bank");
+  const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
 
   useEffect(() => {
     console.log('Location:', location);
@@ -141,8 +143,9 @@ export default function InvoiceCreate() {
   }, [location, orderId, orderData]);
 
   useEffect(() => {
-    if (entities && entities.length > 0) {
+    if (!isEditMode && entities && entities.length > 0) {
       const entity = entities[0];
+      setSelectedEntityId(entity.id);
       setInvoiceData(prev => ({
         ...prev,
         supplier: {
@@ -159,11 +162,12 @@ export default function InvoiceCreate() {
         },
       }));
     }
-  }, [entities]);
+  }, [entities, isEditMode]);
 
   useEffect(() => {
-    if (banks && banks.length > 0) {
+    if (!isEditMode && banks && banks.length > 0) {
       const bank = banks[0];
+      setSelectedBankId(String(bank.id));
       setInvoiceData(prev => ({
         ...prev,
         bankDetails: {
@@ -175,7 +179,7 @@ export default function InvoiceCreate() {
         },
       }));
     }
-  }, [banks]);
+  }, [banks, isEditMode]);
   
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [productSearchOpen, setProductSearchOpen] = useState(false);
@@ -477,6 +481,9 @@ export default function InvoiceCreate() {
         },
       });
       
+      if (existingInvoice.entityId) {
+        setSelectedEntityId(existingInvoice.entityId);
+      }
       if (existingInvoice.bankId) {
         setSelectedBankId(String(existingInvoice.bankId));
       }
@@ -600,23 +607,35 @@ export default function InvoiceCreate() {
   };
 
   const buildInvoicePayload = () => {
-    if (!entities || entities.length === 0) {
-      throw new Error("No business entity configured. Please add one in Settings.");
+    let entityId: number;
+    let entity: any;
+    
+    if (isEditMode && selectedEntityId) {
+      entityId = selectedEntityId;
+      entity = entities.find(e => e.id === entityId);
+      if (!entity) {
+        throw new Error("The entity associated with this invoice no longer exists. Please contact support.");
+      }
+    } else {
+      if (!entities || entities.length === 0) {
+        throw new Error("No business entity configured. Please add one in Settings.");
+      }
+      entityId = entities[0].id;
+      entity = entities[0];
     }
     
-    const entity = entities[0];
     const bankId = selectedBankId !== "no-bank" ? parseInt(selectedBankId) : null;
     const signatureId = selectedSignatureId !== "no-signature" ? parseInt(selectedSignatureId) : null;
     
     const invoice = {
-      entityId: entity.id,
+      entityId: entityId,
       invoiceNumber: invoiceData.invoiceNumber,
       date: invoiceData.date,
       reference: invoiceData.reference,
-      supplierName: entity.legalName,
-      supplierGstin: entity.gstin,
-      supplierAddress: entity.address,
-      supplierState: entity.state,
+      supplierName: entity.legalName || entity.displayName,
+      supplierGstin: entity.gstin || '',
+      supplierAddress: entity.addressLine1 || '',
+      supplierState: entity.state || '',
       buyerName: invoiceData.buyer.name,
       buyerCompany: invoiceData.buyer.company,
       buyerGstin: invoiceData.buyer.gstin,
@@ -750,10 +769,10 @@ export default function InvoiceCreate() {
           <Button variant="outline" size="sm" data-testid="button-save-draft">
             Save as Draft
           </Button>
-          <Button variant="outline" size="sm" data-testid="button-save-print" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending}>
+          <Button variant="outline" size="sm" data-testid="button-save-print" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending || entitiesLoading || banksLoading}>
             {isEditMode ? 'Update and Print' : 'Save and Print'}
           </Button>
-          <Button size="sm" data-testid="button-save" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending}>
+          <Button size="sm" data-testid="button-save" onClick={handleSaveInvoice} disabled={saveInvoiceMutation.isPending || entitiesLoading || banksLoading}>
             {saveInvoiceMutation.isPending ? 'Saving...' : (isEditMode ? 'Update' : 'Save')}
           </Button>
         </div>
