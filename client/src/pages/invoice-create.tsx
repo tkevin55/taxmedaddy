@@ -86,8 +86,9 @@ type Product = {
 export default function InvoiceCreate() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
-  const urlParams = new URLSearchParams(window.location.search);
-  const orderId = urlParams.get('orderId');
+  
+  const searchParams = new URLSearchParams(location.includes('?') ? location.split('?')[1] : '');
+  const orderId = searchParams.get('orderId');
   
   const invoiceIdMatch = location.match(/\/invoices\/(\d+)\/edit/);
   const invoiceId = invoiceIdMatch ? invoiceIdMatch[1] : null;
@@ -145,10 +146,9 @@ export default function InvoiceCreate() {
   const [selectedEntityId, setSelectedEntityId] = useState<number | null>(null);
 
   useEffect(() => {
-    console.log('Location:', location);
-    console.log('Window search:', window.location.search);
-    console.log('Order ID:', orderId);
-    console.log('Order Data:', orderData);
+    console.log('Wouter Location:', location);
+    console.log('Parsed Order ID:', orderId);
+    console.log('Order Data loaded:', !!orderData);
   }, [location, orderId, orderData]);
 
   useEffect(() => {
