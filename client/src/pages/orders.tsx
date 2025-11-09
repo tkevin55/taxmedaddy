@@ -287,15 +287,17 @@ export default function Orders() {
     },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
       setIsDeleteAllConfirmOpen(false);
       toast({
-        title: "Orders Deleted",
-        description: `Successfully deleted ${data.deletedCount} order(s). ${data.skippedCount || 0} order(s) with invoices were skipped.`,
+        title: "All Data Deleted",
+        description: `Successfully deleted ${data.deletedInvoicesCount || 0} invoice(s) and ${data.deletedOrdersCount || 0} order(s)`,
       });
       if (data.errors && data.errors.length > 0) {
         toast({
-          title: "Note",
+          title: "Some Items Could Not Be Deleted",
           description: data.errors.join(", "),
+          variant: "destructive",
         });
       }
     },
@@ -603,10 +605,10 @@ export default function Orders() {
       <AlertDialog open={isDeleteAllConfirmOpen} onOpenChange={setIsDeleteAllConfirmOpen}>
         <AlertDialogContent data-testid="dialog-confirm-delete-all">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Orders</AlertDialogTitle>
+            <AlertDialogTitle>Delete All Orders & Invoices</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete ALL {ordersData?.length || 0} orders? This action cannot be undone. 
-              Orders with invoices will be skipped and cannot be deleted.
+              Are you sure you want to delete ALL orders and their associated invoices? This action cannot be undone. 
+              This will delete approximately {ordersData?.length || 0} orders and any invoices created from them.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

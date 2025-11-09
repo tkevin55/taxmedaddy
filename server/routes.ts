@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { 
   hashPassword, 
   verifyPassword, 
@@ -1199,22 +1199,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const accountId = req.user!.accountId;
 
-      // Fetch ALL orders for this account (without invoices)
-      const allOrders = await db.query.orders.findMany({
+      // First, fetch ALL invoices for this account that have an orderId
+      const invoicesWithOrders = await db.query.invoices.findMany({
         where: and(
-          eq(schema.orders.accountId, accountId),
-          eq(schema.orders.hasInvoice, false)
+          eq(schema.invoices.accountId, accountId),
+          sql`${schema.invoices.orderId} IS NOT NULL`
         ),
       });
 
-      let deletedCount = 0;
+      let deletedInvoicesCount = 0;
+      let deletedOrdersCount = 0;
       const errors: string[] = [];
 
+      // Delete all invoices first (and their items)
+      for (const invoice of invoicesWithOrders) {
+        try {
+          await db.delete(schema.invoiceItems).where(eq(schema.invoiceItems.invoiceId, invoice.id));
+          await db.delete(schema.invoices).where(eq(schema.invoices.id, invoice.id));
+          deletedInvoicesCount++;
+          await logAudit(accountId, req.user!.userId, "delete", "invoice", invoice.id);
+        } catch (error) {
+          console.error(`Error deleting invoice ${invoice.id}:`, error);
+          errors.push(`Failed to delete invoice ${invoice.invoiceNumber}`);
+        }
+      }
+
+      // Now fetch ALL orders for this account
+      const allOrders = await db.query.orders.findMany({
+        where: eq(schema.orders.accountId, accountId),
+      });
+
+      // Delete all orders and their items
       for (const order of allOrders) {
         try {
           await db.delete(schema.orderItems).where(eq(schema.orderItems.orderId, order.id));
           await db.delete(schema.orders).where(eq(schema.orders.id, order.id));
-          deletedCount++;
+          deletedOrdersCount++;
           await logAudit(accountId, req.user!.userId, "delete", "order", order.id);
         } catch (error) {
           console.error(`Error deleting order ${order.id}:`, error);
@@ -1222,22 +1242,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Count orders with invoices that couldn't be deleted
-      const ordersWithInvoices = await db.query.orders.findMany({
-        where: and(
-          eq(schema.orders.accountId, accountId),
-          eq(schema.orders.hasInvoice, true)
-        ),
-      });
-
-      if (ordersWithInvoices.length > 0) {
-        errors.push(`${ordersWithInvoices.length} order(s) with invoices were skipped`);
-      }
-
       res.json({
-        message: `Deleted ${deletedCount} order(s)`,
-        deletedCount,
-        skippedCount: ordersWithInvoices.length,
+        message: `Deleted ${deletedInvoicesCount} invoice(s) and ${deletedOrdersCount} order(s)`,
+        deletedInvoicesCount,
+        deletedOrdersCount,
         errors,
       });
     } catch (error) {
