@@ -307,10 +307,9 @@ export default function InvoiceCreate() {
     
     const lineTotal = rate * quantity;
     const discountAmount = (lineTotal * discount) / 100;
-    const totalAfterDiscount = lineTotal - discountAmount;
-    
-    const taxableValue = totalAfterDiscount / (1 + gstRate / 100);
-    const taxAmount = totalAfterDiscount - taxableValue;
+    const taxableValue = lineTotal - discountAmount;
+    const taxAmount = taxableValue * (gstRate / 100);
+    const total = taxableValue + taxAmount;
     
     return {
       ...item,
@@ -322,7 +321,7 @@ export default function InvoiceCreate() {
       cgst: 0,
       sgst: 0,
       igst: taxAmount,
-      total: totalAfterDiscount,
+      total,
     };
   };
 
