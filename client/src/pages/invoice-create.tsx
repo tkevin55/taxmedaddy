@@ -386,6 +386,18 @@ export default function InvoiceCreate() {
         ? `${orderData.shippingStateCode}-${orderData.shippingState}`
         : '';
 
+      const orderDiscount = typeof orderData.discountTotal === 'string' 
+        ? parseFloat(orderData.discountTotal || '0')
+        : (orderData.discountTotal || 0);
+      
+      const orderSubtotal = typeof orderData.subtotal === 'string'
+        ? parseFloat(orderData.subtotal || '0')
+        : (orderData.subtotal || 0);
+      
+      const discountPercent = orderSubtotal > 0 && orderDiscount > 0
+        ? (orderDiscount / orderSubtotal) * 100
+        : 0;
+
       const orderItems = orderData.items?.map((item, index) => ({
         id: String(index + 1),
         description: item.name || '',
@@ -394,7 +406,7 @@ export default function InvoiceCreate() {
         quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity || '1'),
         unit: 'UNT',
         rate: typeof item.unitPrice === 'number' ? item.unitPrice : parseFloat(item.unitPrice || '0'),
-        discount: 0,
+        discount: discountPercent,
         gstRate: typeof item.gstRate === 'number' ? item.gstRate : parseFloat(item.gstRate || '5'),
         taxableValue: 0,
         cgst: 0,
@@ -421,10 +433,6 @@ export default function InvoiceCreate() {
       console.log('Order items mapped:', orderItems);
 
       setInvoiceData(prev => {
-        const orderDiscount = typeof orderData.discountTotal === 'string' 
-          ? parseFloat(orderData.discountTotal || '0')
-          : (orderData.discountTotal || 0);
-        
         const newData = {
           ...prev,
           reference: orderData.shopifyOrderNumber || '',
